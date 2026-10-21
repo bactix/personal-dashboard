@@ -1,0 +1,34 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { deleteDebt, fetchDebts, postDebt, putDebt } from "./api";
+import type { CreateDebtInput } from "./types";
+
+export const debtsQueryKey = ["debts"] as const;
+
+export function useDebts() {
+  return useQuery({ queryKey: debtsQueryKey, queryFn: fetchDebts });
+}
+
+export function useCreateDebt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: postDebt,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: debtsQueryKey }),
+  });
+}
+
+export function useDeleteDebt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteDebt,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: debtsQueryKey }),
+  });
+}
+
+export function useUpdateDebt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: CreateDebtInput }) => putDebt(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: debtsQueryKey }),
+  });
+}
