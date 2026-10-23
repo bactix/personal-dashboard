@@ -33,6 +33,8 @@ type WidgetCardProps = {
   emptyMessage?: string
   /** Extra controls rendered at the top-right of the header. */
   action?: ReactNode
+  /** Render without the card frame and title (the caller shows its own heading). */
+  bare?: boolean
   /** Rendered only when the query has data. Write the happy path here. */
   children: ReactNode
 }
@@ -71,8 +73,49 @@ export function WidgetCard({
   isEmpty = false,
   emptyMessage = "Nothing to show yet.",
   action,
+  bare = false,
   children,
 }: WidgetCardProps) {
+  if (bare) {
+    // No frame or title: the caller (e.g. a settings section band) supplies the heading.
+    return (
+      <div className="@container/card flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">{description}</p>
+          <div className="flex items-center gap-1">
+            {action}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Refresh ${title}`}
+              disabled={query.isFetching}
+              onClick={() => query.refetch()}
+            >
+              <RefreshCwIcon className={query.isFetching ? "animate-spin" : undefined} />
+            </Button>
+          </div>
+        </div>
+        {query.isPending ? (
+          <div className="flex flex-col gap-3" aria-busy="true">
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="h-4 w-full" />
+          </div>
+        ) : query.isError ? (
+          <div role="alert" className="flex flex-col items-start gap-3 text-sm">
+            <p className="text-muted-foreground">{errorMessage(query.error)}</p>
+            <Button variant="outline" size="sm" onClick={() => query.refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : isEmpty ? (
+          <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+        ) : (
+          children
+        )}
+      </div>
+    )
+  }
+
   return (
     <Card className="@container/card h-full">
       <CardHeader>

@@ -29,15 +29,26 @@ export function ContactsPage() {
               <li key={contact.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                 <div className="flex min-w-0 flex-col">
                   <span className="font-medium break-words">{contact.name}</span>
-                  {contact.phone ? (
+                  {contact.phones.map((phone) => (
                     <a
-                      href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`}
+                      key={phone}
+                      href={`tel:${phone.replace(/[^\d+]/g, "")}`}
                       className="w-fit text-muted-foreground underline-offset-4 hover:underline"
                     >
-                      {contact.phone}
+                      {phone}
                     </a>
-                  ) : (
-                    <span className="text-muted-foreground">No phone number</span>
+                  ))}
+                  {contact.emails.map((email) => (
+                    <a
+                      key={email}
+                      href={`mailto:${email}`}
+                      className="w-fit break-all text-muted-foreground underline-offset-4 hover:underline"
+                    >
+                      {email}
+                    </a>
+                  ))}
+                  {contact.phones.length + contact.emails.length === 0 && (
+                    <span className="text-muted-foreground">No phone number or email</span>
                   )}
                 </div>
                 <div className="flex shrink-0 items-center">

@@ -1,6 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
+import type { ReactNode } from "react"
 
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -20,7 +21,8 @@ function titleFor(pathname: string): string {
   return match?.title ?? "Dashboard"
 }
 
-export function SiteHeader() {
+/** `actions` is a slot for extra header controls (rendered before the theme toggle). */
+export function SiteHeader({ actions }: { actions?: ReactNode }) {
   const title = titleFor(usePathname())
 
   return (
@@ -34,6 +36,7 @@ export function SiteHeader() {
         <h1 className="text-base font-medium">{title}</h1>
         <div className="ml-auto flex items-center gap-2">
           <LebanonDate />
+          {actions}
           <ThemeToggle />
         </div>
       </div>

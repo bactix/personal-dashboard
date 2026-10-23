@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
-import { createBill, listBills } from "@/features/payments/server"
-import { createBillInputSchema } from "@/features/payments/types"
+import { createBill, listBills } from "@/features/accounting/server"
+import { createBillInputSchema } from "@/features/accounting/types"
 
 export async function GET() {
   try {

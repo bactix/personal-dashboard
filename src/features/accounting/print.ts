@@ -1,7 +1,16 @@
 import { escapeHtml } from "@/lib/print/print-html";
 import { formatMoney } from "@/lib/money";
 
-import { billTotalCents, invoiceSubtotalCents, invoiceTotalCents, paymentStatus } from "./totals";
+import {
+  billOutstandingCents,
+  billTotalCents,
+  invoiceOutstandingCents,
+  invoiceSubtotalCents,
+  invoiceTotalCents,
+  paidCents,
+  paymentStatus,
+  returnedCents,
+} from "./totals";
 import type { Bill, Invoice } from "./types";
 
 // Builds the printable (A4) HTML for an invoice or vendor bill. Pass the result to printHtml().
@@ -39,18 +48,42 @@ function notesBlock(notes?: string): string {
 }
 
 /** `discountCents` is shown as a negative line, and only when there is one. */
-function totalsBlock(rows: { label: string; value: string }[], total: string, discount: number, currency: string): string {
-  const lines = rows.map((row) => `<div><span>${escapeHtml(row.label)}</span><span>${escapeHtml(row.value)}</span></div>`);
-  if (discount > 0) {
-    lines.push(`<div><span>Discount</span><span>−${escapeHtml(formatMoney(discount, currency))}</span></div>`);
+function totalsBlock(
+  rows: { label: string; value: string }[],
+  totalCents: number,
+  discount: number,
+  currency: string,
+  returned = 0,
+  paid = 0
+): string {
+  const money = (cents: number) => escapeHtml(formatMoney(cents, currency));
+  const line = (label: string, value: string, grand = false) =>
+    `<div${grand ? ' class="grand"' : ""}><span>${label}</span><span>${value}</span></div>`;
+
+  const lines = rows.map((row) => line(escapeHtml(row.label), escapeHtml(row.value)));
+  if (discount > 0) lines.push(line("Discount", `−${money(discount)}`));
+
+  // The last figure shown is the grand total: the balance due once payments are in, else the
+  // net after returns, else the plain total.
+  if (returned > 0 || paid > 0) {
+    lines.push(line("Total", money(totalCents)));
+    if (returned > 0) lines.push(line("Returns", `−${money(returned)}`));
+    const net = totalCents - returned;
+    if (paid > 0) {
+      lines.push(line("Paid", `−${money(paid)}`));
+      lines.push(line("Balance due", money(net - paid), true));
+    } else {
+      lines.push(line("Net total", money(net), true));
+    }
+  } else {
+    lines.push(line("Total", money(totalCents), true));
   }
-  lines.push(`<div class="grand"><span>Total</span><span>${escapeHtml(total)}</span></div>`);
   return `<div class="totals">${lines.join("")}</div>`;
 }
 
 export function invoiceHtml(invoice: Invoice): string {
   const money = (cents: number) => formatMoney(cents, invoice.currency);
-  const status = paymentStatus(invoice, null).label;
+  const status = paymentStatus(invoice, null, invoiceOutstandingCents(invoice)).label;
 
   const rows = invoice.items
     .map(
@@ -86,9 +119,11 @@ export function invoiceHtml(invoice: Invoice): string {
     </table>
     ${totalsBlock(
       [{ label: "Subtotal", value: money(invoiceSubtotalCents(invoice.items)) }],
-      money(invoiceTotalCents(invoice)),
+      invoiceTotalCents(invoice),
       invoice.discountCents,
-      invoice.currency
+      invoice.currency,
+      returnedCents(invoice),
+      paidCents(invoice)
     )}
     ${notesBlock(invoice.notes)}`
   );
@@ -96,7 +131,7 @@ export function invoiceHtml(invoice: Invoice): string {
 
 export function billHtml(bill: Bill): string {
   const money = (cents: number) => formatMoney(cents, bill.currency);
-  const status = paymentStatus(bill, null).label;
+  const status = paymentStatus(bill, null, billOutstandingCents(bill)).label;
 
   return page(
     `Vendor bill ${bill.reference ?? bill.vendor}`,
@@ -117,9 +152,11 @@ export function billHtml(bill: Bill): string {
     </div>
     ${totalsBlock(
       [{ label: "Amount", value: money(bill.amountCents) }],
-      money(billTotalCents(bill)),
+      billTotalCents(bill),
       bill.discountCents,
-      bill.currency
+      bill.currency,
+      returnedCents(bill),
+      paidCents(bill)
     )}
     ${notesBlock(bill.notes)}`
   );

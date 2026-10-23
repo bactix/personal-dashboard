@@ -1,12 +1,13 @@
 import type { WidgetDefinition } from "@/types/widget";
 
+import { accountingStatsWidget } from "./accounting";
 import { assetsStatsWidget } from "./assets";
 import { contactsStatsWidget } from "./contacts";
 import { debtsStatsWidget } from "./debts";
 import { helpDeskStatsWidget } from "./helpdesk";
-import { paymentsStatsWidget } from "./payments";
 import { projectsStatsWidget, projectsWidget } from "./projects";
 import { purchasesStatsWidget } from "./purchases";
+import { worldClocksWidget } from "./settings";
 import { tasksStatsWidget, tasksWidget } from "./tasks";
 import {
   accountsStatsWidget,
@@ -27,6 +28,7 @@ export const widgets: WidgetDefinition[] = [
   projectsWidget,
   walletsWidget,
   transactionsWidget,
+  worldClocksWidget,
 ];
 
 /** Widgets for the Stats page, in display order. */
@@ -38,7 +40,7 @@ export const statsWidgets: WidgetDefinition[] = [
   goalsStatsWidget,
   budgetsStatsWidget,
   assetsStatsWidget,
-  paymentsStatsWidget,
+  accountingStatsWidget,
   projectsStatsWidget,
   tasksStatsWidget,
   helpDeskStatsWidget,

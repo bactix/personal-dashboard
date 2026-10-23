@@ -10,7 +10,8 @@ const dateFormat = new Intl.DateTimeFormat("en", {
   month: "long",
 })
 
-export function PrayerTimesWidget() {
+/** `bare` drops the card frame and title, for use inside another container (e.g. a popover). */
+export function PrayerTimesWidget({ bare = false }: { bare?: boolean }) {
   const query = usePrayerTimes()
   const data = query.data
 
@@ -22,6 +23,7 @@ export function PrayerTimesWidget() {
       title="Prayer times"
       description={data ? `${data.location} · ${dateLabel}` : "Lebanon"}
       query={query}
+      bare={bare}
     >
       {data && (
         <div className="flex flex-col gap-3">

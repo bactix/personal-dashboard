@@ -1,5 +1,7 @@
 "use client"
 
+import { LinkIcon } from "lucide-react"
+
 import { DeleteButton } from "@/components/dashboard/delete-button"
 import { ListPagination } from "@/components/dashboard/list-pagination"
 import { WidgetCard } from "@/components/dashboard/widget-card"
@@ -18,6 +20,7 @@ import { useToday } from "@/hooks/use-today"
 
 import { useDeleteProject, useProjects } from "../hooks"
 import { statusOf } from "../status"
+import { resourceLabel } from "../types"
 import { ProjectDialog } from "./project-dialog"
 
 export function ProjectsPage() {
@@ -56,8 +59,24 @@ export function ProjectsPage() {
                 const status = statusOf(project, today)
                 return (
                   <TableRow key={project.id}>
-                    <TableCell className="font-medium whitespace-normal break-words">
-                      {project.name}
+                    <TableCell className="whitespace-normal">
+                      <span className="font-medium wrap-break-word">{project.name}</span>
+                      {project.resources.length > 0 && (
+                        <ul aria-label={`Resources for ${project.name}`} className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                          {project.resources.map((resource, index) => (
+                            <li key={`${resource.url}-${index}`}>
+                              <a
+                                href={resource.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                              >
+                                <LinkIcon className="size-3" /> {resourceLabel(resource)}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </TableCell>
                     <TableCell className="tabular-nums">{project.startDate ?? "—"}</TableCell>
                     <TableCell className="tabular-nums">{project.endDate ?? "—"}</TableCell>

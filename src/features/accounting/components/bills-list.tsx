@@ -17,15 +17,34 @@ import { useToday } from "@/hooks/use-today"
 import { formatMoney } from "@/lib/money"
 import { printHtml } from "@/lib/print/print-html"
 
-import { useBills, useDeleteBill } from "../hooks"
+import {
+  useAddBillPayment,
+  useAddBillReturn,
+  useBills,
+  useDeleteBill,
+  useRemoveBillPayment,
+  useRemoveBillReturn,
+} from "../hooks"
 import { billHtml } from "../print"
-import { billTotalCents, paymentStatus } from "../totals"
+import {
+  billNetCents,
+  billOutstandingCents,
+  billTotalCents,
+  paidCents,
+  paymentStatus,
+  returnedCents,
+} from "../totals"
+import { AmountRecordsDialog } from "./amount-records-dialog"
 import { BillDialog } from "./bill-dialog"
 import { PrintButton } from "./print-button"
 
 export function BillsList() {
   const query = useBills()
   const deleteBill = useDeleteBill()
+  const addReturn = useAddBillReturn()
+  const removeReturn = useRemoveBillReturn()
+  const addPayment = useAddBillPayment()
+  const removePayment = useRemoveBillPayment()
   const today = useToday()
   const bills = query.data ?? []
   const pagination = usePagination(bills)
@@ -47,23 +66,38 @@ export function BillsList() {
             <TableHead>Due</TableHead>
             <TableHead className="text-right">Amount</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead className="w-28">
+            <TableHead className="w-40">
               <span className="sr-only">Actions</span>
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {pagination.pageItems.map((bill) => {
-            const status = paymentStatus(bill, today)
+            const outstanding = billOutstandingCents(bill)
+            const status = paymentStatus(bill, today, outstanding)
+            const returned = returnedCents(bill)
+            const paid = paidCents(bill)
+            const total = billTotalCents(bill)
+            const net = billNetCents(bill)
             return (
               <TableRow key={bill.id}>
-                <TableCell className="font-medium whitespace-normal break-words">{bill.vendor}</TableCell>
-                <TableCell className="whitespace-normal break-words text-muted-foreground">
+                <TableCell className="font-medium whitespace-normal wrap-break-word">{bill.vendor}</TableCell>
+                <TableCell className="whitespace-normal wrap-break-word text-muted-foreground">
                   {bill.reference ?? "—"}
                 </TableCell>
                 <TableCell className="tabular-nums">{bill.dueDate}</TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatMoney(billTotalCents(bill), bill.currency)}
+                  {formatMoney(net, bill.currency)}
+                  {returned > 0 && (
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {formatMoney(total, bill.currency)} − returned {formatMoney(returned, bill.currency)}
+                    </div>
+                  )}
+                  {paid > 0 && (
+                    <div className="text-xs font-normal text-muted-foreground">
+                      paid {formatMoney(paid, bill.currency)} · left {formatMoney(outstanding, bill.currency)}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Badge variant={status.variant}>{status.label}</Badge>
@@ -73,6 +107,30 @@ export function BillsList() {
                     <PrintButton
                       itemLabel={`bill from ${bill.vendor}`}
                       onPrint={() => printHtml(billHtml(bill))}
+                    />
+                    <AmountRecordsDialog
+                      kind="payment"
+                      itemLabel={`bill from ${bill.vendor}`}
+                      currency={bill.currency}
+                      totalCents={net}
+                      limitCents={outstanding}
+                      records={bill.payments.map((item) => ({ ...item, text: item.note }))}
+                      onAdd={({ text, ...rest }) =>
+                        addPayment.mutateAsync({ id: bill.id, input: { ...rest, note: text } })
+                      }
+                      onRemove={(paymentId) => removePayment.mutateAsync({ id: bill.id, paymentId })}
+                    />
+                    <AmountRecordsDialog
+                      kind="return"
+                      itemLabel={`bill from ${bill.vendor}`}
+                      currency={bill.currency}
+                      totalCents={total}
+                      limitCents={total - returned - paid}
+                      records={bill.returns.map((item) => ({ ...item, text: item.reason }))}
+                      onAdd={({ text, ...rest }) =>
+                        addReturn.mutateAsync({ id: bill.id, input: { ...rest, reason: text } })
+                      }
+                      onRemove={(returnId) => removeReturn.mutateAsync({ id: bill.id, returnId })}
                     />
                     <BillDialog bill={bill} />
                     <DeleteButton

@@ -5,7 +5,14 @@ import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
 /** Page chrome: collapsible sidebar (off-canvas on mobile), header, and content area. */
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  headerActions,
+}: {
+  children: ReactNode
+  /** Extra header controls, supplied by the app layer (e.g. a feature's clock). */
+  headerActions?: ReactNode
+}) {
   return (
     <SidebarProvider
       style={
@@ -17,7 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     >
       <AppSidebar variant="inset" />
       <SidebarInset>
-        <SiteHeader />
+        <SiteHeader actions={headerActions} />
         <div className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
           {children}
         </div>

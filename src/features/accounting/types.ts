@@ -25,6 +25,39 @@ export const lineItemSchema = z.object({
   unitCents: z.number().int().positive("Enter a unit price greater than zero"),
 });
 
+/** A return (credit note for an invoice, refund from a vendor for a bill): money given back. */
+export const returnSchema = z.object({
+  id: z.string(),
+  date: isoDate,
+  /** Minor units (cents) returned. */
+  amountCents: z.number().int().positive(),
+  reason: z.string().trim().max(200).optional(),
+});
+
+export const createReturnInputSchema = z.object({
+  date: isoDate,
+  amountCents: z.number().int().positive("Enter an amount greater than zero"),
+  reason: z.string().trim().max(200, "Reason is too long").optional(),
+});
+
+/**
+ * A payment recorded against an invoice (money received) or a vendor bill (money paid out).
+ * Several partial payments are allowed, up to what is still outstanding.
+ */
+export const paymentRecordSchema = z.object({
+  id: z.string(),
+  date: isoDate,
+  /** Minor units (cents) paid. */
+  amountCents: z.number().int().positive(),
+  note: z.string().trim().max(200).optional(),
+});
+
+export const createPaymentInputSchema = z.object({
+  date: isoDate,
+  amountCents: z.number().int().positive("Enter an amount greater than zero"),
+  note: z.string().trim().max(200, "Note is too long").optional(),
+});
+
 const dueNotBeforeIssue = { message: "Due date can't be before the issue date", path: ["dueDate"] };
 
 // ---- Invoices: money a customer owes you ----
@@ -47,7 +80,15 @@ const discountWithinSubtotal = (invoice: { items: LineItem[]; discountCents: num
 const discountTooBig = { message: "Discount can't be more than the subtotal", path: ["discountCents"] };
 
 export const invoiceSchema = z
-  .object({ id: z.string(), number: z.string(), ...invoiceFields, createdAt: z.string() })
+  .object({
+    id: z.string(),
+    number: z.string(),
+    ...invoiceFields,
+    /** Managed through the returns / payments routes, never through the invoice form. */
+    returns: z.array(returnSchema).default([]),
+    payments: z.array(paymentRecordSchema).default([]),
+    createdAt: z.string(),
+  })
   .refine(invoiceDatesInOrder, dueNotBeforeIssue)
   .refine(discountWithinSubtotal, discountTooBig);
 
@@ -81,7 +122,14 @@ const billDiscountBelowAmount = (bill: { amountCents: number; discountCents: num
 const billDiscountTooBig = { message: "Discount must be less than the amount", path: ["discountCents"] };
 
 export const billSchema = z
-  .object({ id: z.string(), ...billFields, createdAt: z.string() })
+  .object({
+    id: z.string(),
+    ...billFields,
+    /** Managed through the returns / payments routes, never through the bill form. */
+    returns: z.array(returnSchema).default([]),
+    payments: z.array(paymentRecordSchema).default([]),
+    createdAt: z.string(),
+  })
   .refine(billDatesInOrder, dueNotBeforeBill)
   .refine(billDiscountBelowAmount, billDiscountTooBig);
 
@@ -90,6 +138,10 @@ export const createBillInputSchema = z
   .refine(billDatesInOrder, dueNotBeforeBill)
   .refine(billDiscountBelowAmount, billDiscountTooBig);
 
+export type ReturnRecord = z.infer<typeof returnSchema>;
+export type CreateReturnInput = z.infer<typeof createReturnInputSchema>;
+export type PaymentRecord = z.infer<typeof paymentRecordSchema>;
+export type CreatePaymentInput = z.infer<typeof createPaymentInputSchema>;
 export type LineItem = z.infer<typeof lineItemSchema>;
 export type Invoice = z.infer<typeof invoiceSchema>;
 export type CreateInvoiceInput = z.infer<typeof createInvoiceInputSchema>;

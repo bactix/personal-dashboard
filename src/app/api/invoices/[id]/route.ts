@@ -1,5 +1,5 @@
-import { removeInvoice, updateInvoice } from "@/features/payments/server"
-import { createInvoiceInputSchema } from "@/features/payments/types"
+import { removeInvoice, LimitExceededError, updateInvoice } from "@/features/accounting/server"
+import { createInvoiceInputSchema } from "@/features/accounting/types"
 import { deleteResponse } from "@/lib/api/delete-route"
 import { updateResponse } from "@/lib/api/update-route"
 
@@ -15,5 +15,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     request,
     schema: createInvoiceInputSchema,
     update: (input) => updateInvoice(id, input),
+    clientErrors: [LimitExceededError],
   })
 }

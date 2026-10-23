@@ -59,6 +59,24 @@ function write(next: Stored) {
   listeners.forEach((listener) => listener());
 }
 
+/** Whether anything is counted today (either period), and a reset for both periods at once. */
+export function useAzkarOverview() {
+  const raw = useSyncExternalStore(subscribe, readRaw, () => "");
+  const today = useToday();
+  const stored = useMemo(() => parse(raw), [raw]);
+
+  const hasProgress =
+    !!stored && stored.date === today && Object.values(stored.counts).some((count) => count > 0);
+
+  return {
+    hasProgress,
+    resetAll() {
+      if (!today) return;
+      write({ date: today, counts: {} });
+    },
+  };
+}
+
 /** Today's tap counts for one period (morning / evening), with increment and reset. */
 export function useAzkarProgress(period: AzkarPeriod) {
   const raw = useSyncExternalStore(subscribe, readRaw, () => "");

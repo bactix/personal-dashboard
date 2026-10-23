@@ -1,6 +1,6 @@
 "use client"
 
-import { UserPlusIcon } from "lucide-react"
+import { PlusIcon, UserPlusIcon, XIcon } from "lucide-react"
 import { useState, type FormEvent } from "react"
 
 import { EditTrigger } from "@/components/dashboard/edit-trigger"
@@ -19,7 +19,67 @@ import { Label } from "@/components/ui/label"
 import { userMessage } from "@/lib/http/errors"
 
 import { useCreateContact, useUpdateContact } from "../hooks"
-import { createContactInputSchema, type Contact } from "../types"
+import { createContactInputSchema, MAX_EMAILS, MAX_PHONES, type Contact } from "../types"
+
+/** Rows shown in a list editor; always at least one (empty rows are dropped on save). */
+function rowsFrom(values: string[] | undefined): string[] {
+  return values && values.length > 0 ? values : [""]
+}
+
+type ValueListProps = {
+  label: string
+  addLabel: string
+  idPrefix: string
+  values: string[]
+  onChange: (values: string[]) => void
+  max: number
+  invalid: boolean
+  inputProps: React.ComponentProps<typeof Input>
+}
+
+/** A labelled list of inputs with add / remove controls. */
+function ValueList({ label, addLabel, idPrefix, values, onChange, max, invalid, inputProps }: ValueListProps) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={`${idPrefix}-0`}>{label}</Label>
+      {values.map((value, index) => (
+        <div key={index} className="flex items-center gap-2">
+          <Input
+            {...inputProps}
+            id={`${idPrefix}-${index}`}
+            value={value}
+            onChange={(event) => onChange(values.map((v, i) => (i === index ? event.target.value : v)))}
+            aria-invalid={invalid}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Remove ${label.toLowerCase()} ${index + 1}`}
+            disabled={values.length === 1 && value === ""}
+            onClick={() => {
+              const next = values.filter((_, i) => i !== index)
+              onChange(next.length > 0 ? next : [""])
+            }}
+          >
+            <XIcon />
+          </Button>
+        </div>
+      ))}
+      {values.length < max && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-fit"
+          onClick={() => onChange([...values, ""])}
+        >
+          <PlusIcon /> {addLabel}
+        </Button>
+      )}
+    </div>
+  )
+}
 
 /** Add form, or edit form when `contact` is given. */
 export function ContactDialog({ contact }: { contact?: Contact }) {
@@ -29,19 +89,26 @@ export function ContactDialog({ contact }: { contact?: Contact }) {
 
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(contact?.name ?? "")
-  const [phone, setPhone] = useState(contact?.phone ?? "")
+  const [phones, setPhones] = useState(rowsFrom(contact?.phones))
+  const [emails, setEmails] = useState(rowsFrom(contact?.emails))
   const [error, setError] = useState<string | null>(null)
 
   /** Fills the form from the contact (edit) or clears it (add). Runs on open and close. */
   function load() {
     setName(contact?.name ?? "")
-    setPhone(contact?.phone ?? "")
+    setPhones(rowsFrom(contact?.phones))
+    setEmails(rowsFrom(contact?.emails))
     setError(null)
   }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault()
-    const parsed = createContactInputSchema.safeParse({ name, phone })
+    const clean = (values: string[]) => values.map((v) => v.trim()).filter(Boolean)
+    const parsed = createContactInputSchema.safeParse({
+      name,
+      phones: clean(phones),
+      emails: clean(emails),
+    })
     if (!parsed.success) return setError(parsed.error.issues[0].message)
 
     setError(null)
@@ -74,12 +141,14 @@ export function ContactDialog({ contact }: { contact?: Contact }) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{contact ? "Edit contact" : "Add contact"}</DialogTitle>
             <DialogDescription>
-              {contact ? "Change this contact’s details." : "Save a name and phone number you can link debts to."}
+              {contact
+                ? "Change this contact’s details."
+                : "Save a name with phone numbers and emails you can link debts to."}
             </DialogDescription>
           </DialogHeader>
 
@@ -93,20 +162,40 @@ export function ContactDialog({ contact }: { contact?: Contact }) {
               maxLength={80}
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="contact-phone">Phone number</Label>
-            <Input
-              id="contact-phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="off"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              aria-invalid={!!error}
-              maxLength={25}
-              placeholder="+961 70 123 456"
-            />
-          </div>
+
+          <ValueList
+            label="Phone numbers"
+            addLabel="Add phone number"
+            idPrefix="contact-phone"
+            values={phones}
+            onChange={setPhones}
+            max={MAX_PHONES}
+            invalid={!!error}
+            inputProps={{
+              type: "tel",
+              inputMode: "tel",
+              autoComplete: "off",
+              maxLength: 25,
+              placeholder: "+961 70 123 456",
+            }}
+          />
+
+          <ValueList
+            label="Emails"
+            addLabel="Add email"
+            idPrefix="contact-email"
+            values={emails}
+            onChange={setEmails}
+            max={MAX_EMAILS}
+            invalid={!!error}
+            inputProps={{
+              type: "email",
+              inputMode: "email",
+              autoComplete: "off",
+              maxLength: 120,
+              placeholder: "name@example.com",
+            }}
+          />
 
           {error && (
             <p role="alert" className="text-sm text-destructive">

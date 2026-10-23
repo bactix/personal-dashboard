@@ -6,6 +6,8 @@ import { TasksSummaryWidget } from "./components/tasks-summary-widget";
 // Public surface of the tasks feature. Server-only code lives in ./server
 // and is deliberately NOT re-exported here.
 export { TasksPage } from "./components/tasks-page";
+export { useTasks } from "./hooks";
+export type { Task } from "./types";
 
 export const tasksWidget: WidgetDefinition = {
   id: "tasks",

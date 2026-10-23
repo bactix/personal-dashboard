@@ -1,6 +1,6 @@
 "use client"
 
-import { PlusIcon } from "lucide-react"
+import { PlusIcon, XIcon } from "lucide-react"
 import { useState, type FormEvent } from "react"
 
 import { EditTrigger } from "@/components/dashboard/edit-trigger"
@@ -20,7 +20,21 @@ import { useToday } from "@/hooks/use-today"
 import { userMessage } from "@/lib/http/errors"
 
 import { useCreateProject, useUpdateProject } from "../hooks"
-import { createProjectInputSchema, type Project } from "../types"
+import { createProjectInputSchema, MAX_RESOURCES, type Project, type Resource } from "../types"
+
+type ResourceRow = { title: string; url: string }
+
+/** Rows shown in the links editor; always at least one (empty rows are dropped on save). */
+function rowsFrom(resources: Resource[] | undefined): ResourceRow[] {
+  const rows = (resources ?? []).map((item) => ({ title: item.title ?? "", url: item.url }))
+  return rows.length > 0 ? rows : [{ title: "", url: "" }]
+}
+
+/** "example.com" -> "https://example.com"; anything already with a scheme is left alone. */
+function withScheme(value: string): string {
+  const trimmed = value.trim()
+  return /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
 
 /** Add form, or edit form when `project` is given. */
 export function ProjectDialog({ project }: { project?: Project }) {
@@ -35,6 +49,7 @@ export function ProjectDialog({ project }: { project?: Project }) {
   const [pickedStart, setStartDate] = useState<string | null>(project?.startDate ?? null)
   const startDate = pickedStart ?? today
   const [endDate, setEndDate] = useState(project?.endDate ?? "")
+  const [resources, setResources] = useState<ResourceRow[]>(rowsFrom(project?.resources))
   const [error, setError] = useState<string | null>(null)
 
   /** Fills the form from the project (edit) or clears it (add). Runs on open and close. */
@@ -42,7 +57,19 @@ export function ProjectDialog({ project }: { project?: Project }) {
     setName(project?.name ?? "")
     setStartDate(project?.startDate ?? null)
     setEndDate(project?.endDate ?? "")
+    setResources(rowsFrom(project?.resources))
     setError(null)
+  }
+
+  function updateRow(index: number, patch: Partial<ResourceRow>) {
+    setResources((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)))
+  }
+
+  function removeRow(index: number) {
+    setResources((rows) => {
+      const next = rows.filter((_, i) => i !== index)
+      return next.length > 0 ? next : [{ title: "", url: "" }]
+    })
   }
 
   function onSubmit(event: FormEvent) {
@@ -51,6 +78,9 @@ export function ProjectDialog({ project }: { project?: Project }) {
       name,
       startDate: startDate || undefined,
       endDate: endDate || undefined,
+      resources: resources
+        .filter((row) => row.url.trim() !== "")
+        .map((row) => ({ title: row.title.trim() || undefined, url: withScheme(row.url) })),
     })
     if (!parsed.success) return setError(parsed.error.issues[0].message)
 
@@ -84,7 +114,7 @@ export function ProjectDialog({ project }: { project?: Project }) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{project ? "Edit project" : "Add project"}</DialogTitle>
@@ -123,6 +153,54 @@ export function ProjectDialog({ project }: { project?: Project }) {
                 onChange={(event) => setEndDate(event.target.value)}
               />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="project-resource-0">Resources (links)</Label>
+            {resources.map((row, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <Input
+                  className="w-2/5"
+                  aria-label={`Link ${index + 1} title`}
+                  value={row.title}
+                  onChange={(event) => updateRow(index, { title: event.target.value })}
+                  maxLength={80}
+                  placeholder="Title (optional)"
+                />
+                <Input
+                  id={`project-resource-${index}`}
+                  className="flex-1"
+                  aria-label={`Link ${index + 1} address`}
+                  inputMode="url"
+                  autoComplete="off"
+                  value={row.url}
+                  onChange={(event) => updateRow(index, { url: event.target.value })}
+                  maxLength={500}
+                  placeholder="https://…"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Remove link ${index + 1}`}
+                  disabled={resources.length === 1 && !row.title && !row.url}
+                  onClick={() => removeRow(index)}
+                >
+                  <XIcon />
+                </Button>
+              </div>
+            ))}
+            {resources.length < MAX_RESOURCES && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-fit"
+                onClick={() => setResources((rows) => [...rows, { title: "", url: "" }])}
+              >
+                <PlusIcon /> Add link
+              </Button>
+            )}
           </div>
 
           {error && (

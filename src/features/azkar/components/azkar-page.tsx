@@ -4,12 +4,19 @@ import { CheckIcon, MoonIcon, RotateCcwIcon, SunriseIcon } from "lucide-react"
 
 import { ListPagination } from "@/components/dashboard/list-pagination"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { usePagination } from "@/hooks/use-pagination"
 
 import { azkar } from "../data"
-import { useAzkarProgress } from "../hooks"
+import { useAzkarOverview, useAzkarProgress } from "../hooks"
 import type { AzkarPeriod, Dhikr } from "../types"
 
 function AzkarList({ period, items }: { period: AzkarPeriod; items: Dhikr[] }) {
@@ -32,7 +39,7 @@ function AzkarList({ period, items }: { period: AzkarPeriod; items: Dhikr[] }) {
           disabled={!anyProgress}
           onClick={() => progress.reset()}
         >
-          <RotateCcwIcon /> Reset all
+          <RotateCcwIcon /> Reset {period}
         </Button>
       </div>
       <ul className="divide-y">
@@ -78,11 +85,23 @@ function AzkarList({ period, items }: { period: AzkarPeriod; items: Dhikr[] }) {
 }
 
 export function AzkarPage() {
+  const overview = useAzkarOverview()
+
   return (
     <Card className="mx-auto w-full max-w-2xl">
       <CardHeader>
         <CardDescription>Daily remembrance · counters reset each day</CardDescription>
         <CardTitle>Azkar</CardTitle>
+        <CardAction>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!overview.hasProgress}
+            onClick={() => overview.resetAll()}
+          >
+            <RotateCcwIcon /> Reset all
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="morning">

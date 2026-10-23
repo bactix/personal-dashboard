@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
-import { createInvoice, listInvoices } from "@/features/payments/server"
-import { createInvoiceInputSchema } from "@/features/payments/types"
+import { createInvoice, listInvoices } from "@/features/accounting/server"
+import { createInvoiceInputSchema } from "@/features/accounting/types"
 
 export async function GET() {
   try {
