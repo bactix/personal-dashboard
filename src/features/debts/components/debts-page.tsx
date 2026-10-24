@@ -19,8 +19,9 @@ import { formatMoney } from "@/lib/money"
 import { formatCreatedDate } from "@/lib/dates"
 
 import { useDebts, useDeleteDebt } from "../hooks"
-import { totalsFor } from "../totals"
+import { remainingCents, totalsFor } from "../totals"
 import { DebtDialog } from "./debt-dialog"
+import { PayDebtDialog } from "./pay-debt-dialog"
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
@@ -62,10 +63,12 @@ export function DebtsPage() {
               <TableHead>Contact</TableHead>
               <TableHead>Type</TableHead>
               <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right">Paid</TableHead>
+              <TableHead className="text-right">Remaining</TableHead>
               <TableHead>Due</TableHead>
               <TableHead>Note</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead className="w-20">
+              <TableHead className="w-36">
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
@@ -84,13 +87,29 @@ export function DebtsPage() {
                 <TableCell className="text-right tabular-nums">
                   {formatMoney(debt.amountCents, debt.currency)}
                 </TableCell>
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  {debt.paidCents > 0 ? formatMoney(debt.paidCents, debt.currency) : "—"}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {remainingCents(debt) > 0 ? (
+                    formatMoney(remainingCents(debt), debt.currency)
+                  ) : (
+                    <Badge variant="secondary">Paid</Badge>
+                  )}
+                </TableCell>
                 <TableCell>{debt.dueDate ?? "—"}</TableCell>
                 <TableCell className="max-w-48 truncate text-muted-foreground">
                   {debt.description ?? "—"}
                 </TableCell>
                 <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatCreatedDate(debt.createdAt)}</TableCell>
                 <TableCell className="text-right">
-                  <div className="flex items-center justify-end">
+                  <div className="flex items-center justify-end gap-1">
+                    {remainingCents(debt) > 0 && (
+                      <PayDebtDialog
+                        debt={debt}
+                        contactName={nameById.get(debt.contactId) ?? "contact"}
+                      />
+                    )}
                     <DebtDialog debt={debt} />
                     <DeleteButton
                       itemLabel={"debt"}

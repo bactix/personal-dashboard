@@ -8,7 +8,7 @@ import { useContacts } from "@/features/contacts"
 import { formatMoney } from "@/lib/money"
 
 import { useDebts } from "../hooks"
-import { totalsFor } from "../totals"
+import { remainingCents, totalsFor } from "../totals"
 
 /** How many of the newest debts the tile lists; the rest are on the Debts page. */
 const RECENT_COUNT = 5
@@ -18,7 +18,8 @@ export function DebtsSummaryWidget() {
   const contacts = useContacts()
   const debts = query.data ?? []
   // The API returns debts newest first, so the first few are the latest.
-  const recent = debts.slice(0, RECENT_COUNT)
+  const open = debts.filter((debt) => remainingCents(debt) > 0)
+  const recent = open.slice(0, RECENT_COUNT)
   const nameById = new Map(contacts.data?.map((contact) => [contact.id, contact.name]))
 
   return (
@@ -57,7 +58,7 @@ export function DebtsSummaryWidget() {
                   </span>
                 </div>
                 <span className="shrink-0 tabular-nums">
-                  {formatMoney(debt.amountCents, debt.currency)}
+                  {formatMoney(remainingCents(debt), debt.currency)}
                 </span>
               </li>
             ))}
@@ -68,7 +69,7 @@ export function DebtsSummaryWidget() {
           href="/financial/debts"
           className="w-fit text-sm text-primary underline-offset-4 hover:underline"
         >
-          {debts.length > RECENT_COUNT ? `View all ${debts.length} debts` : "View debts"}
+          {open.length > RECENT_COUNT ? `View all ${open.length} open debts` : "View debts"}
         </Link>
       </div>
     </WidgetCard>

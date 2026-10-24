@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { computeBalances } from "../balances"
 import { useDeleteGoal, useGoals, useTransactions, useWallets } from "../hooks"
 import { GoalDialog } from "./goal-dialog"
+import { TransactionDialog } from "./transaction-dialog"
 
 export function GoalsPage() {
   const query = useGoals()
@@ -33,7 +34,7 @@ export function GoalsPage() {
           query={query}
           action={<GoalDialog />}
           isEmpty={goals.length === 0}
-          emptyMessage="No goals yet. Use Add goal to start saving for something. Each goal gets its own wallet; add money to it from Transactions."
+          emptyMessage="No goals yet. Use Add goal to start saving for something. Each goal gets its own wallet; add or take out money right on the goal."
         >
           <ul className="divide-y">
             {pagination.pageItems.map((goal) => {
@@ -55,6 +56,10 @@ export function GoalsPage() {
                     </div>
                   </div>
                   <Progress value={percent} aria-label={`${goal.name} progress`} />
+                  <div className="flex flex-wrap gap-2">
+                    <TransactionDialog kind="deposit" fixedWalletId={goal.walletId} />
+                    <TransactionDialog kind="withdrawal" fixedWalletId={goal.walletId} />
+                  </div>
                   <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground tabular-nums">
                     <span>
                       {transactions.isPending ? "…" : formatMoney(saved, goal.currency)} of{" "}

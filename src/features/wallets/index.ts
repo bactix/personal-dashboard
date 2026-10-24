@@ -16,6 +16,8 @@ export { BudgetsPage } from "./components/budgets-page";
 export { GoalsPage } from "./components/goals-page";
 export { TransactionsPage } from "./components/transactions-page";
 export { WalletsPage } from "./components/wallets-page";
+export { transactionsQueryKey, useWallets, walletsQueryKey } from "./hooks";
+export type { Wallet } from "./types";
 
 export const walletsWidget: WidgetDefinition = {
   id: "wallets",

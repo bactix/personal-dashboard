@@ -14,10 +14,32 @@ export const debtSchema = z.object({
   currency: z.enum(CURRENCIES),
   description: z.string().max(200).optional(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /** Minor units already paid toward the debt (sum of its payments); never sent by the client. */
+  paidCents: z.number().int().nonnegative().default(0),
   createdAt: z.string(),
 });
 
-export const createDebtInputSchema = debtSchema.omit({ id: true, createdAt: true });
+export const createDebtInputSchema = debtSchema.omit({ id: true, createdAt: true, paidCents: true });
+
+/** A payment toward a debt; `transactionId` is the wallet transaction it created. */
+export const debtPaymentSchema = z.object({
+  id: z.string(),
+  debtId: z.string().min(1),
+  transactionId: z.string().min(1),
+  amountCents: z.number().int().positive(),
+  createdAt: z.string(),
+});
+
+/** Paying part or all of a debt from a wallet of the same currency. */
+export const payDebtInputSchema = z.object({
+  walletId: z.string().min(1, "Choose a wallet"),
+  /** Minor units (cents), at most what is left on the debt. */
+  amountCents: z.number().int().positive("Enter an amount greater than zero"),
+  /** Day the money moved (yyyy-mm-dd). */
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid date"),
+});
+
+export type PayDebtInput = z.infer<typeof payDebtInputSchema>;
 
 export type DebtDirection = z.infer<typeof debtDirectionSchema>;
 export type Debt = z.infer<typeof debtSchema>;

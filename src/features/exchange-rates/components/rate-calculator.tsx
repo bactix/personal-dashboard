@@ -4,6 +4,7 @@ import { useId, useState } from "react"
 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 
 /** A typed number, or null for blank / not a number. Commas are ignored ("1,250.5"). */
 function parse(text: string): number | null {
@@ -22,10 +23,19 @@ function format(value: number): string {
  * Two-way converter between US dollars and one currency: type an amount in either box and the
  * other fills in straight away. `perUsd` is how many units of the currency one dollar buys.
  */
-export function RateCalculator({ code, perUsd }: { code: string; perUsd: number }) {
+export function RateCalculator({
+  code,
+  perUsd,
+  compact = false,
+}: {
+  code: string
+  perUsd: number
+  /** Short inputs with the currency codes as placeholders instead of visible labels. */
+  compact?: boolean
+}) {
   const id = useId()
-  const [usd, setUsd] = useState("")
-  const [local, setLocal] = useState("")
+  const [usd, setUsd] = useState("1")
+  const [local, setLocal] = useState(() => format(perUsd))
 
   function onUsd(text: string) {
     setUsd(text)
@@ -42,7 +52,10 @@ export function RateCalculator({ code, perUsd }: { code: string; perUsd: number 
   return (
     <div className="grid grid-cols-2 gap-2" role="group" aria-label={`Convert between USD and ${code}`}>
       <div className="flex flex-col gap-1">
-        <Label htmlFor={`${id}-usd`} className="text-xs text-muted-foreground">
+        <Label
+          htmlFor={`${id}-usd`}
+          className={cn("text-xs text-muted-foreground", compact && "sr-only")}
+        >
           USD
         </Label>
         <Input
@@ -51,12 +64,15 @@ export function RateCalculator({ code, perUsd }: { code: string; perUsd: number 
           autoComplete="off"
           value={usd}
           onChange={(event) => onUsd(event.target.value)}
-          placeholder="0.00"
-          className="tabular-nums"
+          placeholder={compact ? "USD" : "0.00"}
+          className={cn("tabular-nums", compact && "h-8")}
         />
       </div>
       <div className="flex flex-col gap-1">
-        <Label htmlFor={`${id}-local`} className="text-xs text-muted-foreground">
+        <Label
+          htmlFor={`${id}-local`}
+          className={cn("text-xs text-muted-foreground", compact && "sr-only")}
+        >
           {code}
         </Label>
         <Input
@@ -65,8 +81,8 @@ export function RateCalculator({ code, perUsd }: { code: string; perUsd: number 
           autoComplete="off"
           value={local}
           onChange={(event) => onLocal(event.target.value)}
-          placeholder="0.00"
-          className="tabular-nums"
+          placeholder={compact ? code : "0.00"}
+          className={cn("tabular-nums", compact && "h-8")}
         />
       </div>
     </div>

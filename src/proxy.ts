@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { safeRedirectPath } from "@/lib/auth/redirect"
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/session"
+import { readSession } from "@/lib/auth/session"
 
 // Gatekeeper for the whole app: everything requires a valid session except the login
-// page and the auth API. Fails closed when AUTH_SECRET is missing.
+// page and the auth API. Sessions are Supabase Auth cookies; fails closed when Supabase or
+// AUTH_OWNER_EMAIL is missing.
 
 const PUBLIC_PATHS = ["/login", "/api/auth/login"]
 
@@ -24,21 +25,25 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const authenticated = await verifySessionToken(
-    request.cookies.get(SESSION_COOKIE)?.value,
-    process.env.AUTH_SECRET
-  )
+  const { response, authenticated } = await readSession(request)
+
+  // Redirects must carry any refreshed session cookies.
+  const redirectTo = (url: URL) => {
+    const redirect = NextResponse.redirect(url)
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie))
+    return redirect
+  }
 
   if (authenticated) {
     // Logged-in users have no reason to see the login page.
     if (pathname === "/login") {
       const next = safeRedirectPath(request.nextUrl.searchParams.get("next"))
-      return NextResponse.redirect(new URL(next, request.url))
+      return redirectTo(new URL(next, request.url))
     }
-    return NextResponse.next()
+    return response
   }
 
-  if (isPublic) return NextResponse.next()
+  if (isPublic) return response
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -46,7 +51,7 @@ export async function proxy(request: NextRequest) {
 
   const loginUrl = new URL("/login", request.url)
   if (pathname !== "/") loginUrl.searchParams.set("next", pathname + search)
-  return NextResponse.redirect(loginUrl)
+  return redirectTo(loginUrl)
 }
 
 export const config = {

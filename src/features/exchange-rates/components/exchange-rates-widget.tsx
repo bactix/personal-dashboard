@@ -30,25 +30,22 @@ export function ExchangeRatesWidget() {
     >
       {data && (
         <div className="flex flex-col gap-4">
-          <ul className="grid grid-cols-1 gap-x-6 gap-y-6 @md/card:grid-cols-2 @3xl/card:grid-cols-3">
+          <ul className="flex flex-col gap-3">
             {SHOWN.map((code) => {
               const usd = usdPer(data, code)
               const perUsd = data.perUsd[code]
               if (usd === undefined || perUsd === undefined) return null
               return (
-                <li key={code} className="flex flex-col gap-2">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-sm text-muted-foreground">
+                <li key={code} className="flex flex-col gap-1.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-xs text-muted-foreground" title={nameOf(code)}>
                       {code} · {nameOf(code)}
                     </span>
-                    <span className="text-2xl font-semibold tabular-nums">
-                      1 {code} = {usd.toFixed(4)} USD
-                    </span>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      1 USD = {perUsd.toFixed(4)} {code}
+                    <span className="shrink-0 text-sm font-semibold tabular-nums">
+                      {usd.toFixed(4)} USD
                     </span>
                   </div>
-                  <RateCalculator code={code} perUsd={perUsd} />
+                  <RateCalculator code={code} perUsd={perUsd} compact />
                 </li>
               )
             })}

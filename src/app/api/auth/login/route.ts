@@ -1,47 +1,54 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse, type NextRequest } from "next/server";
 
-import {
-  clearFailures,
-  isRateLimited,
-  recordFailure,
-  verifyPassword,
-} from "@/features/auth/server"
-import { loginInputSchema } from "@/features/auth/types"
-import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS, createSessionToken } from "@/lib/auth/session"
-import { getAuthEnv } from "@/lib/env"
+import { clearFailures, isRateLimited, recordFailure } from "@/features/auth/server";
+import { loginInputSchema } from "@/features/auth/types";
+import { isOwner } from "@/lib/auth/session";
+import { getAuthEnv } from "@/lib/env";
+import { createSupabaseAuthClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
-  const parsed = loginInputSchema.safeParse(await request.json().catch(() => null))
+  const parsed = loginInputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
+    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
 
-  let secret: string
+  let ownerEmail: string;
   try {
-    secret = getAuthEnv().secret
+    ownerEmail = getAuthEnv().ownerEmail;
   } catch (error) {
-    console.error("[api/auth/login]", error)
-    return NextResponse.json({ error: "Login is not configured" }, { status: 503 })
+    console.error("[api/auth/login]", error);
+    return NextResponse.json({ error: "Login is not configured" }, { status: 503 });
   }
 
-  const clientKey = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local"
+  const clientKey = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local";
   if (isRateLimited(clientKey)) {
-    return NextResponse.json({ error: "Too many attempts" }, { status: 429 })
+    return NextResponse.json({ error: "Too many attempts" }, { status: 429 });
   }
 
-  if (!verifyPassword(parsed.data.password)) {
-    recordFailure(clientKey)
-    return NextResponse.json({ error: "Incorrect password" }, { status: 401 })
+  // Same answer for a wrong email and a wrong password.
+  const reject = () => {
+    recordFailure(clientKey);
+    return NextResponse.json({ error: "Incorrect email or password" }, { status: 401 });
+  };
+  if (!isOwner(parsed.data.email, ownerEmail)) return reject();
+
+  let supabase;
+  try {
+    supabase = await createSupabaseAuthClient();
+  } catch (error) {
+    console.error("[api/auth/login]", error);
+    return NextResponse.json({ error: "Login is not configured" }, { status: 503 });
   }
 
-  clearFailures(clientKey)
-  const response = NextResponse.json({ ok: true })
-  response.cookies.set(SESSION_COOKIE, await createSessionToken(secret), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  })
-  return response
+  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  if (error) {
+    if (error.status && error.status >= 500) {
+      console.error("[api/auth/login]", error);
+      return NextResponse.json({ error: "Could not reach the sign-in service" }, { status: 502 });
+    }
+    return reject();
+  }
+
+  clearFailures(clientKey);
+  return NextResponse.json({ ok: true });
 }

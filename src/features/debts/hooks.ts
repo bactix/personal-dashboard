@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { deleteDebt, fetchDebts, postDebt, putDebt } from "./api";
-import type { CreateDebtInput } from "./types";
+import { transactionsQueryKey, walletsQueryKey } from "@/features/wallets";
+
+import { deleteDebt, fetchDebts, payDebt, postDebt, putDebt } from "./api";
+import type { CreateDebtInput, PayDebtInput } from "./types";
 
 export const debtsQueryKey = ["debts"] as const;
 
@@ -30,5 +32,19 @@ export function useUpdateDebt() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: CreateDebtInput }) => putDebt(id, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: debtsQueryKey }),
+  });
+}
+
+/** Paying books a wallet transaction too, so wallets and transactions refresh with the debts. */
+export function usePayDebt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PayDebtInput }) => payDebt(id, input),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: debtsQueryKey }),
+        queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
+        queryClient.invalidateQueries({ queryKey: walletsQueryKey }),
+      ]),
   });
 }

@@ -214,5 +214,16 @@ feature's hook.
 
 ## 13. Deliberately not included (YAGNI)
 
-State library (Redux/Zustand), a real database server, auth, and a monorepo. A single-user dashboard
-doesn't need them; each can be added later without restructuring because of the layer rules above.
+State library (Redux/Zustand), a real database server, per-user data, and a monorepo. A single-user
+dashboard doesn't need them; each can be added later without restructuring because of the layer rules above.
+
+## 14. Login (Supabase Auth)
+
+- Sign-in is Supabase Auth email + password. `POST /api/auth/login` (thin, rate-limited) calls
+  `signInWithPassword` through `lib/supabase/server.ts`; `POST /api/auth/logout` signs out. The session
+  lives in Supabase's cookies.
+- `src/proxy.ts` validates the session on every request via `readSession()` (`lib/auth/session.ts`,
+  `getClaims()`, refreshing cookies) and requires the claim's email to equal `AUTH_OWNER_EMAIL`, so an
+  extra Supabase user (e.g. from open sign-ups) still cannot get in. It fails closed when unconfigured.
+- Data stays single-owner and shared: no `user_id` columns; features keep using the secret key via
+  `lib/supabase/admin.ts` with RLS on and no policies. Per-user data would be a separate migration.

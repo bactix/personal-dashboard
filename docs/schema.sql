@@ -175,6 +175,17 @@ CREATE TABLE transactions (
 );
 CREATE INDEX transactions_wallet_idx  ON transactions (wallet_id, txn_date DESC);
 
+-- Money paid toward a debt. Each payment is also a wallet transaction (db/009-debt-payments.sql);
+-- deleting that transaction removes the payment.
+CREATE TABLE debt_payments (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  debt_id        uuid NOT NULL REFERENCES debts(id) ON DELETE RESTRICT,
+  transaction_id uuid NOT NULL UNIQUE REFERENCES transactions(id) ON DELETE CASCADE,
+  amount_cents   bigint NOT NULL CHECK (amount_cents > 0),
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX debt_payments_debt_idx ON debt_payments (debt_id);
+
 -- A savings goal owns a wallet (created together); name + currency come from that wallet.
 CREATE TABLE goals (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -318,4 +329,4 @@ LEFT JOIN (SELECT bill_id, SUM(amount_cents) AS paid     FROM bill_payments GROU
 -- * Prayer times, weather, gold/silver prices   fetched live from external APIs (optionally cache them)
 -- * Notifications         derived on the fly from invoices, bills, tasks, projects, prayer times
 -- * Notification dismissals, selected header clock, azkar counters   per-browser localStorage
--- * Login                 single owner; AUTH_PASSWORD / AUTH_SECRET in .env.local (sessions are signed cookies)
+-- * Login                 Supabase Auth (auth.users, managed by Supabase); one owner, AUTH_OWNER_EMAIL in .env.local

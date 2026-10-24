@@ -1,21 +1,9 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-
-import { getAuthEnv } from "@/lib/env";
-
-// Server-only: single-owner password check plus a small brute-force limiter.
+// Server-only: a small brute-force limiter for the login route (Supabase checks the password).
 
 const MAX_FAILED_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
 
 const failures = new Map<string, { count: number; resetAt: number }>();
-
-const digest = (value: string) => createHash("sha256").update(value).digest();
-
-/** Compares digests in constant time so response timing can't leak the password. */
-export function verifyPassword(candidate: string): boolean {
-  const { password } = getAuthEnv();
-  return timingSafeEqual(digest(candidate), digest(password));
-}
 
 export function isRateLimited(clientKey: string): boolean {
   const entry = failures.get(clientKey);

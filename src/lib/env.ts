@@ -8,9 +8,9 @@ import { z } from "zod";
  * Add every new variable here (and to .env.example) so a missing one fails loudly.
  */
 const serverSchema = z.object({
-  // Login (single owner). Both required for sign-in; the app fails closed without them.
-  AUTH_PASSWORD: z.string().min(8).optional(),
-  AUTH_SECRET: z.string().min(32).optional(),
+  // Login (Supabase Auth, single owner): only this account's email may use the app, even if
+  // someone else manages to create a Supabase user. The app fails closed without it.
+  AUTH_OWNER_EMAIL: z.string().email().optional(),
   // "true" turns the login gate off (local development only; ignored in production).
   AUTH_DISABLED: z.enum(["true", "false"]).optional(),
 
@@ -21,6 +21,8 @@ const serverSchema = z.object({
   // Supabase: the database behind every feature. The server uses the SECRET key (never a
   // NEXT_PUBLIC_ name); the project URL is public by design.
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
+  // Public by design; only used for Supabase Auth sign-in (RLS keeps it out of the data).
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(20).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
 
   // Weather (Open-Meteo is keyless; these only choose the location shown)
@@ -54,11 +56,20 @@ export function getSupabaseEnv() {
   return { url: NEXT_PUBLIC_SUPABASE_URL, secretKey: SUPABASE_SERVICE_ROLE_KEY };
 }
 
-/** Credentials for the login page. Throws if they are not configured in .env.local. */
-export function getAuthEnv() {
-  const { AUTH_PASSWORD, AUTH_SECRET } = getServerEnv();
-  if (!AUTH_PASSWORD || !AUTH_SECRET) {
-    throw new Error("AUTH_PASSWORD and AUTH_SECRET must be set in .env.local");
+/** Supabase URL + publishable key, for signing in. Throws a clear message if either is missing. */
+export function getSupabaseAuthEnv() {
+  const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY } = getServerEnv();
+  if (!NEXT_PUBLIC_SUPABASE_URL || !NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY must be set in .env.local"
+    );
   }
-  return { password: AUTH_PASSWORD, secret: AUTH_SECRET };
+  return { url: NEXT_PUBLIC_SUPABASE_URL, publishableKey: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY };
+}
+
+/** The one email allowed to sign in. Throws if it is not configured in .env.local. */
+export function getAuthEnv() {
+  const { AUTH_OWNER_EMAIL } = getServerEnv();
+  if (!AUTH_OWNER_EMAIL) throw new Error("AUTH_OWNER_EMAIL must be set in .env.local");
+  return { ownerEmail: AUTH_OWNER_EMAIL };
 }

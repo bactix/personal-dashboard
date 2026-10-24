@@ -3,69 +3,49 @@
 import Link from "next/link"
 
 import { WidgetCard } from "@/components/dashboard/widget-card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { useNow } from "@/hooks/use-now"
 
 import { formatZoneDate, formatZoneTime } from "../clock"
 import { useTimezones } from "../hooks"
-import { useSelectedClockId } from "../selected-clock"
 
-/** One clock showing the city picked from the saved time zones. */
+/** Every saved city with its local time. */
 export function WorldClocksWidget() {
   const query = useTimezones()
   const now = useNow()
-  const [selectedId, selectId] = useSelectedClockId()
   const items = query.data ?? []
-  // Falls back to the first city when nothing is chosen or the chosen one was deleted.
-  const current = items.find((item) => item.id === selectedId) ?? items[0]
 
   return (
     <WidgetCard
-      title="World clock"
-      description="Local time in a city you saved"
+      title="World clocks"
+      description={`${items.length} ${items.length === 1 ? "city" : "cities"} you saved`}
       query={query}
       isEmpty={items.length === 0}
       emptyMessage="No cities yet. Add one in Settings."
     >
-      {current && (
-        <div className="flex flex-col gap-3">
-          <Select value={current.id} onValueChange={selectId}>
-            <SelectTrigger className="w-full" aria-label="City">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {items.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.city}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col gap-3">
+        <ul className="flex flex-col divide-y">
+          {items.map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{item.city}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {now === null ? "" : formatZoneDate(now, item.timeZone)}
+                </p>
+              </div>
+              <p className="shrink-0 text-2xl font-semibold tabular-nums">
+                {now === null ? "--:--" : formatZoneTime(now, item.timeZone).time}
+              </p>
+            </li>
+          ))}
+        </ul>
 
-          <div className="flex flex-col">
-            <p className="text-4xl font-semibold tabular-nums">
-              {now === null ? "--:--" : formatZoneTime(now, current.timeZone).time}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {now === null ? "" : formatZoneDate(now, current.timeZone)}
-            </p>
-            <p className="text-xs break-all text-muted-foreground">{current.timeZone}</p>
-          </div>
-
-          <Link
-            href="/settings"
-            className="w-fit text-sm text-primary underline-offset-4 hover:underline"
-          >
-            Manage in Settings
-          </Link>
-        </div>
-      )}
+        <Link
+          href="/settings"
+          className="w-fit text-sm text-primary underline-offset-4 hover:underline"
+        >
+          Manage in Settings
+        </Link>
+      </div>
     </WidgetCard>
   )
 }

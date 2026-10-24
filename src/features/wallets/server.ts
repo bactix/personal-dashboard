@@ -103,6 +103,10 @@ export async function listWallets(): Promise<Wallet[]> {
   return all.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+export function getWallet(id: string): Promise<Wallet | undefined> {
+  return wallets.get(id);
+}
+
 export function createWallet(input: CreateWalletInput): Promise<Wallet> {
   return wallets.create(input);
 }

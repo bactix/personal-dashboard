@@ -57,9 +57,12 @@ const toAmountText = (cents: number) => (cents / 100).toFixed(2)
 export function TransactionDialog({
   transaction,
   kind = "deposit",
+  fixedWalletId,
 }: {
   transaction?: Transaction
   kind?: TransactionType
+  /** Locks a new transaction to this wallet (used by goals) instead of asking for one. */
+  fixedWalletId?: string
 }) {
   const transactions = useTransactions()
   const wallets = useWallets()
@@ -70,7 +73,7 @@ export function TransactionDialog({
 
   const [open, setOpen] = useState(false)
   const type: TransactionType = transaction?.type ?? kind
-  const [walletId, setWalletId] = useState(transaction?.walletId ?? "")
+  const [walletId, setWalletId] = useState(transaction?.walletId ?? fixedWalletId ?? "")
   const [budgetId, setBudgetId] = useState(transaction?.budgetId ?? NO_BUDGET)
   const [amount, setAmount] = useState(transaction ? toAmountText(transaction.amountCents) : "")
   const today = useToday() ?? ""
@@ -93,7 +96,7 @@ export function TransactionDialog({
 
   /** Fills the form from the transaction (edit) or clears it (add). Runs on open and close. */
   function load() {
-    setWalletId(transaction?.walletId ?? "")
+    setWalletId(transaction?.walletId ?? fixedWalletId ?? "")
     setBudgetId(transaction?.budgetId ?? NO_BUDGET)
     setAmount(transaction ? toAmountText(transaction.amountCents) : "")
     setDate(transaction?.date ?? null)
@@ -186,18 +189,24 @@ export function TransactionDialog({
               </p>
             ) : (
               <>
-                <Select value={walletId} onValueChange={setWalletId}>
-                  <SelectTrigger className="w-full" aria-label="Wallet">
-                    <SelectValue placeholder="Select a wallet" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {wallets.data?.map((wallet) => (
-                      <SelectItem key={wallet.id} value={wallet.id}>
-                        {wallet.name} ({wallet.currency})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {fixedWalletId && !transaction ? (
+                  <p className="text-sm font-medium">
+                    {selectedWallet ? `${selectedWallet.name} (${selectedWallet.currency})` : "…"}
+                  </p>
+                ) : (
+                  <Select value={walletId} onValueChange={setWalletId}>
+                    <SelectTrigger className="w-full" aria-label="Wallet">
+                      <SelectValue placeholder="Select a wallet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {wallets.data?.map((wallet) => (
+                        <SelectItem key={wallet.id} value={wallet.id}>
+                          {wallet.name} ({wallet.currency})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 {selectedWallet && (
                   <p className="text-sm text-muted-foreground">
                     Balance:{" "}

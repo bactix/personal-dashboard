@@ -11,7 +11,7 @@ export const debtsWidget: WidgetDefinition = {
   id: "debts",
   title: "Debts",
   component: DebtsSummaryWidget,
-  size: { md: 2, xl: 2 },
+  size: { md: 1, xl: 1 },
 };
 
 export const debtsStatsWidget: WidgetDefinition = {
