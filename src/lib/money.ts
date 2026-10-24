@@ -11,5 +11,5 @@ export function formatMoney(cents: number, currency: string): string {
 }
 
 /** Currencies the app supports. Amounts are stored as integer minor units (cents). */
-export const CURRENCIES = ["USD", "LBP"] as const;
+export const CURRENCIES = ["USD", "LBP", "EUR", "CAD", "AUD", "AED", "SAR"] as const;
 export type Currency = (typeof CURRENCIES)[number];

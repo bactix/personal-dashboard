@@ -16,6 +16,7 @@ import { usePagination } from "@/hooks/use-pagination"
 import { useToday } from "@/hooks/use-today"
 import { formatMoney } from "@/lib/money"
 import { printHtml } from "@/lib/print/print-html"
+import { formatCreatedDate } from "@/lib/dates"
 
 import {
   useAddInvoicePayment,
@@ -66,6 +67,7 @@ export function InvoicesList() {
             <TableHead>Due</TableHead>
             <TableHead className="text-right">Total</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Created</TableHead>
             <TableHead className="w-40">
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -100,6 +102,7 @@ export function InvoicesList() {
                 <TableCell>
                   <Badge variant={status.variant}>{status.label}</Badge>
                 </TableCell>
+                <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatCreatedDate(invoice.createdAt)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end">
                     <PrintButton

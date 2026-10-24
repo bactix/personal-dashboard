@@ -6,16 +6,17 @@ import { useToday } from "@/hooks/use-today"
 import { CURRENCIES, formatMoney } from "@/lib/money"
 
 import { computeBalances } from "../balances"
-import { useGoals, useTransactions } from "../hooks"
+import { useGoals, useTransactions, useWallets } from "../hooks"
 
 export function GoalsStatsWidget() {
   const goalsQuery = useGoals()
   const transactionsQuery = useTransactions()
+  const walletsQuery = useWallets()
   const query = combineQueries(goalsQuery, transactionsQuery)
   const today = useToday()
 
   const goals = goalsQuery.data ?? []
-  const balances = computeBalances(transactionsQuery.data ?? [])
+  const balances = computeBalances(transactionsQuery.data ?? [], walletsQuery.data ?? [])
   const savedOf = (walletId: string) => Math.max(0, balances.get(walletId) ?? 0)
 
   const reached = goals.filter((goal) => savedOf(goal.walletId) >= goal.targetCents).length

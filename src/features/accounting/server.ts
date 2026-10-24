@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { billTotalCents, invoiceTotalCents, paidCents, returnedCents } from "./totals";
 import {
@@ -36,8 +36,93 @@ function assertWithinTotal(
   if (returnedCents(document) + paidCents(document) > totalCents) throw new LimitExceededError(message);
 }
 
-const invoices = createJsonStore("invoices", invoiceSchema);
-const bills = createJsonStore("bills", billSchema);
+// Returns and payments are child rows (own id, kept in the order they were recorded); the same
+// shape serves invoices and bills, only the table and the foreign key differ.
+function returnsTable(table: string, fk: string) {
+  return {
+    table,
+    fk,
+    columns: "id,return_date,amount_cents,reason,created_at",
+    order: "created_at",
+    attach(candidate: Record<string, unknown>, rows: Record<string, unknown>[]) {
+      candidate.returns = rows.map((row) => ({
+        id: row.id,
+        date: row.return_date,
+        amountCents: row.amount_cents,
+        reason: row.reason ?? undefined,
+      }));
+    },
+    toRows: (input: { returns: ReturnRecord[] }) =>
+      input.returns.map((item) => ({
+        id: item.id,
+        return_date: item.date,
+        amount_cents: item.amountCents,
+        reason: item.reason ?? null,
+      })),
+  };
+}
+
+function paymentsTable(table: string, fk: string) {
+  return {
+    table,
+    fk,
+    columns: "id,paid_date,amount_cents,note,created_at",
+    order: "created_at",
+    attach(candidate: Record<string, unknown>, rows: Record<string, unknown>[]) {
+      candidate.payments = rows.map((row) => ({
+        id: row.id,
+        date: row.paid_date,
+        amountCents: row.amount_cents,
+        note: row.note ?? undefined,
+      }));
+    },
+    toRows: (input: { payments: PaymentRecord[] }) =>
+      input.payments.map((item) => ({
+        id: item.id,
+        paid_date: item.date,
+        amount_cents: item.amountCents,
+        note: item.note ?? null,
+      })),
+  };
+}
+
+const invoices = createSupabaseStore({
+  table: "invoices",
+  schema: invoiceSchema,
+  exclude: ["items", "returns", "payments"],
+  children: [
+    {
+      table: "invoice_items",
+      fk: "invoice_id",
+      columns: "description,quantity,unit_cents,position",
+      order: "position",
+      // The database checks returns + payments against the sum of these lines on every change,
+      // so the new lines must exist before the old ones are removed.
+      insertBeforeDelete: true,
+      attach(candidate, rows) {
+        candidate.items = rows
+          .sort((a, b) => Number(a.position) - Number(b.position))
+          .map((row) => ({ description: row.description, quantity: row.quantity, unitCents: row.unit_cents }));
+      },
+      toRows: (input) =>
+        input.items.map((item, position) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit_cents: item.unitCents,
+          position,
+        })),
+    },
+    returnsTable("invoice_returns", "invoice_id"),
+    paymentsTable("invoice_payments", "invoice_id"),
+  ],
+});
+
+const bills = createSupabaseStore({
+  table: "bills",
+  schema: billSchema,
+  exclude: ["returns", "payments"],
+  children: [returnsTable("bill_returns", "bill_id"), paymentsTable("bill_payments", "bill_id")],
+});
 
 // ---- Invoices ----
 

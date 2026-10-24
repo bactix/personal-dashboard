@@ -1,11 +1,11 @@
 import { CURRENCIES } from "@/lib/money";
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { currencySchema, type CreateCurrencyInput, type CurrencySetting } from "./currency-types";
 
 // Server-only: persistence for the currencies setting.
 
-const store = createJsonStore("currencies", currencySchema);
+const store = createSupabaseStore({ table: "currencies", schema: currencySchema });
 
 /** Thrown when the code is already in the list; routes map it to a 400. */
 export class DuplicateCurrencyError extends Error {

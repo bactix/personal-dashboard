@@ -16,6 +16,7 @@ import {
 import { useContacts } from "@/features/contacts"
 import { usePagination } from "@/hooks/use-pagination"
 import { formatMoney } from "@/lib/money"
+import { formatCreatedDate } from "@/lib/dates"
 
 import { useDebts, useDeleteDebt } from "../hooks"
 import { totalsFor } from "../totals"
@@ -63,6 +64,7 @@ export function DebtsPage() {
               <TableHead className="text-right">Amount</TableHead>
               <TableHead>Due</TableHead>
               <TableHead>Note</TableHead>
+              <TableHead>Created</TableHead>
               <TableHead className="w-20">
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -86,6 +88,7 @@ export function DebtsPage() {
                 <TableCell className="max-w-48 truncate text-muted-foreground">
                   {debt.description ?? "—"}
                 </TableCell>
+                <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatCreatedDate(debt.createdAt)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end">
                     <DebtDialog debt={debt} />

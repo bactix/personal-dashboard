@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { useProjects } from "@/features/projects"
 import { useToday } from "@/hooks/use-today"
 import { userMessage } from "@/lib/http/errors"
@@ -48,6 +49,7 @@ export function TaskDialog({ task }: { task?: Task }) {
 
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(task?.name ?? "")
+  const [description, setDescription] = useState(task?.description ?? "")
   const today = useToday() ?? ""
   // null = untouched, so a new task's start follows "today" without reading the clock during render.
   const [pickedStart, setStartDate] = useState<string | null>(task?.startDate ?? null)
@@ -61,6 +63,7 @@ export function TaskDialog({ task }: { task?: Task }) {
   /** Fills the form from the task (edit) or clears it (add). Runs on open and close. */
   function load() {
     setName(task?.name ?? "")
+    setDescription(task?.description ?? "")
     setStartDate(task?.startDate ?? null)
     setEndDate(task?.endDate ?? "")
     setProjectId(task?.projectId ?? NO_PROJECT)
@@ -72,6 +75,7 @@ export function TaskDialog({ task }: { task?: Task }) {
     event.preventDefault()
     const parsed = createTaskInputSchema.safeParse({
       name,
+      description: description.trim() || undefined,
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       projectId: hasProject ? projectId : undefined,
@@ -110,7 +114,7 @@ export function TaskDialog({ task }: { task?: Task }) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{task ? "Edit task" : "Add task"}</DialogTitle>
@@ -128,6 +132,18 @@ export function TaskDialog({ task }: { task?: Task }) {
               onChange={(event) => setName(event.target.value)}
               maxLength={150}
               placeholder="What needs to be done?"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="task-description">Description (optional)</Label>
+            <Textarea
+              id="task-description"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              maxLength={2000}
+              rows={4}
+              className="max-h-48 overflow-y-auto"
+              placeholder="Details, notes, steps…"
             />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

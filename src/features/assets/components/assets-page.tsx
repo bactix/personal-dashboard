@@ -14,6 +14,7 @@ import {
 import { usePagination } from "@/hooks/use-pagination"
 import { formatMoney } from "@/lib/money"
 import { cn } from "@/lib/utils"
+import { formatCreatedDate } from "@/lib/dates"
 
 import { useAssets, useDeleteAsset } from "../hooks"
 import { changeCents, changePercent } from "../totals"
@@ -43,6 +44,7 @@ export function AssetsPage() {
                 <TableHead>Purchased</TableHead>
                 <TableHead className="text-right">Current value</TableHead>
                 <TableHead className="text-right">Change</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="w-20">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -82,6 +84,7 @@ export function AssetsPage() {
                         {changePercent(asset)}%
                       </p>
                     </TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatCreatedDate(asset.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end">
                         <AssetDialog asset={asset} />

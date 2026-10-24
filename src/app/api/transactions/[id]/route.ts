@@ -1,4 +1,4 @@
-import { AccountNotFoundError, WalletNotFoundError, updateTransaction } from "@/features/wallets/server"
+import { BudgetMismatchError, BudgetNotFoundError, WalletNotFoundError, updateTransaction } from "@/features/wallets/server"
 import { createTransactionInputSchema } from "@/features/wallets/types"
 import { updateResponse } from "@/lib/api/update-route"
 
@@ -17,6 +17,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     request,
     schema: createTransactionInputSchema,
     update: (input) => updateTransaction(id, input),
-    clientErrors: [WalletNotFoundError, AccountNotFoundError],
+    clientErrors: [WalletNotFoundError, BudgetNotFoundError, BudgetMismatchError],
   })
 }

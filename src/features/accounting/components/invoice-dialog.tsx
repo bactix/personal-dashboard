@@ -29,6 +29,7 @@ import { userMessage } from "@/lib/http/errors"
 import { CURRENCIES, formatMoney, parseAmountToCents, type Currency } from "@/lib/money"
 
 import { useCreateInvoice, useUpdateInvoice } from "../hooks"
+import { ContactCombobox } from "./contact-combobox"
 import { invoiceSubtotalCents } from "../totals"
 import {
   INVOICE_STATUSES,
@@ -175,11 +176,12 @@ export function InvoiceDialog({ invoice }: { invoice?: Invoice }) {
           <div className="grid grid-cols-[1fr_6rem] gap-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="invoice-customer">Customer</Label>
-              <Input
+              <ContactCombobox
                 id="invoice-customer"
                 value={customer}
-                onChange={(event) => setCustomer(event.target.value)}
+                onValueChange={setCustomer}
                 maxLength={80}
+                placeholder="Search your contacts…"
               />
             </div>
             <div className="flex flex-col gap-2">

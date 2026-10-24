@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 
+import { CreatedDate } from "@/components/dashboard/created-date"
 import { DeleteButton } from "@/components/dashboard/delete-button"
 import { ListPagination } from "@/components/dashboard/list-pagination"
 import { WidgetCard } from "@/components/dashboard/widget-card"
@@ -39,7 +40,10 @@ export function LogosCard() {
                   className="max-h-full w-auto object-contain"
                 />
               </div>
-              <span className="font-medium wrap-break-word">{item.name}</span>
+              <div className="min-w-0">
+                <span className="block font-medium wrap-break-word">{item.name}</span>
+                <CreatedDate iso={item.createdAt} />
+              </div>
             </div>
             <div className="flex shrink-0 items-center">
               <LogoDialog logo={item} />

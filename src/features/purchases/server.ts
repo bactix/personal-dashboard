@@ -1,10 +1,10 @@
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { purchaseItemSchema, type CreatePurchaseItemInput, type PurchaseItem } from "./types";
 
 // Server-only: persistence for the buy-later list. Used by app/api/purchases.
 
-const store = createJsonStore("purchases", purchaseItemSchema);
+const store = createSupabaseStore({ table: "purchase_items", schema: purchaseItemSchema });
 
 export async function listPurchaseItems(): Promise<PurchaseItem[]> {
   const items = await store.list();

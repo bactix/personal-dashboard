@@ -1,5 +1,6 @@
 "use client"
 
+import { CreatedDate } from "@/components/dashboard/created-date"
 import { DeleteButton } from "@/components/dashboard/delete-button"
 import { ListPagination } from "@/components/dashboard/list-pagination"
 import { WidgetCard } from "@/components/dashboard/widget-card"
@@ -34,6 +35,7 @@ export function TimezonesCard() {
               <div className="flex min-w-0 flex-col">
                 <span className="font-medium wrap-break-word">{item.city}</span>
                 <span className="break-all text-muted-foreground">{item.timeZone}</span>
+                <CreatedDate iso={item.createdAt} />
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="tabular-nums text-muted-foreground">

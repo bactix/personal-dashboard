@@ -1,11 +1,24 @@
 import { getContact } from "@/features/contacts/server";
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { debtSchema, type CreateDebtInput, type Debt } from "./types";
 
 // Server-only: persistence for debts. Used by app/api/debts.
 
-const store = createJsonStore("debts", debtSchema);
+/** The database spells the directions with underscores; the app uses hyphens. */
+const DIRECTION_TO_DB = { "i-owe": "i_owe", "owed-to-me": "owed_to_me" } as const;
+const DIRECTION_FROM_DB = { i_owe: "i-owe", owed_to_me: "owed-to-me" } as const;
+
+const store = createSupabaseStore({
+  table: "debts",
+  schema: debtSchema,
+  readFix(candidate, raw) {
+    candidate.direction = DIRECTION_FROM_DB[raw.direction as keyof typeof DIRECTION_FROM_DB];
+  },
+  writeFix(row, input) {
+    row.direction = DIRECTION_TO_DB[input.direction];
+  },
+});
 
 export class ContactNotFoundError extends Error {
   constructor() {

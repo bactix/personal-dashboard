@@ -1,10 +1,10 @@
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { assetSchema, type Asset, type CreateAssetInput } from "./types";
 
 // Server-only: persistence for assets. Used by app/api/assets.
 
-const store = createJsonStore("assets", assetSchema);
+const store = createSupabaseStore({ table: "assets", schema: assetSchema });
 
 /** Most valuable first. */
 export async function listAssets(): Promise<Asset[]> {

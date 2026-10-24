@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { AccountNotFoundError, createBudget, listBudgets } from "@/features/wallets/server"
+import { createBudget, listBudgets } from "@/features/wallets/server"
 import { createBudgetInputSchema } from "@/features/wallets/types"
 
 export async function GET() {
@@ -20,9 +20,6 @@ export async function POST(request: Request) {
   try {
     return NextResponse.json(await createBudget(parsed.data), { status: 201 })
   } catch (error) {
-    if (error instanceof AccountNotFoundError) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
     console.error("[api/budgets POST]", error)
     return NextResponse.json({ error: "Failed to save budget" }, { status: 500 })
   }

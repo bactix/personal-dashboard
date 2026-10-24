@@ -26,7 +26,7 @@ import {
 import { userMessage } from "@/lib/http/errors"
 import { CURRENCIES, parseAmountToCents, type Currency } from "@/lib/money"
 
-import { useAccounts, useCreateBudget, useUpdateBudget } from "../hooks"
+import { useCreateBudget, useUpdateBudget } from "../hooks"
 import {
   BUDGET_CATEGORIES,
   budgetTitle,
@@ -36,14 +36,11 @@ import {
 } from "../types"
 
 /** Select needs a non-empty value for the "all spending" choice. */
-const ALL_SPENDING = "all"
-
 /** Cents -> the text a person would type, e.g. 25000 -> "250.00". */
 const toAmountText = (cents: number) => (cents / 100).toFixed(2)
 
 /** Add form, or edit form when `budget` is given. */
 export function BudgetDialog({ budget }: { budget?: Budget }) {
-  const accounts = useAccounts()
   const createBudget = useCreateBudget()
   const updateBudget = useUpdateBudget()
   const pending = createBudget.isPending || updateBudget.isPending
@@ -54,7 +51,6 @@ export function BudgetDialog({ budget }: { budget?: Budget }) {
   const [category, setCategory] = useState<BudgetCategory | "">(budget?.category ?? "")
   const [currency, setCurrency] = useState<Currency>(budget?.currency ?? "USD")
   const [limit, setLimit] = useState(budget ? toAmountText(budget.limitCents) : "")
-  const [accountId, setAccountId] = useState(budget?.accountId ?? ALL_SPENDING)
   const [error, setError] = useState<string | null>(null)
 
   /** Fills the form from the budget (edit) or clears it (add). Runs on open and close. */
@@ -63,7 +59,6 @@ export function BudgetDialog({ budget }: { budget?: Budget }) {
     setCategory(budget?.category ?? "")
     setCurrency(budget?.currency ?? "USD")
     setLimit(budget ? toAmountText(budget.limitCents) : "")
-    setAccountId(budget?.accountId ?? ALL_SPENDING)
     setError(null)
   }
 
@@ -79,7 +74,6 @@ export function BudgetDialog({ budget }: { budget?: Budget }) {
       category,
       currency,
       limitCents,
-      accountId: accountId === ALL_SPENDING ? undefined : accountId,
     })
     if (!parsed.success) return setError(parsed.error.issues[0].message)
 
@@ -175,23 +169,6 @@ export function BudgetDialog({ budget }: { budget?: Budget }) {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>Counts spending from</Label>
-            <Select value={accountId} onValueChange={setAccountId}>
-              <SelectTrigger className="w-full" aria-label="Account">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_SPENDING}>All spending in this currency</SelectItem>
-                {accounts.data?.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    Account: {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {error && (

@@ -1,9 +1,13 @@
 "use client"
 
+import { MessageCircleIcon } from "lucide-react"
+
+import { CreatedDate } from "@/components/dashboard/created-date"
 import { DeleteButton } from "@/components/dashboard/delete-button"
 import { ListPagination } from "@/components/dashboard/list-pagination"
 import { WidgetCard } from "@/components/dashboard/widget-card"
 import { usePagination } from "@/hooks/use-pagination"
+import { whatsappLink } from "@/lib/phone"
 
 import { useContacts, useDeleteContact } from "../hooks"
 import { ContactDialog } from "./contact-dialog"
@@ -29,15 +33,31 @@ export function ContactsPage() {
               <li key={contact.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                 <div className="flex min-w-0 flex-col">
                   <span className="font-medium break-words">{contact.name}</span>
-                  {contact.phones.map((phone) => (
-                    <a
-                      key={phone}
-                      href={`tel:${phone.replace(/[^\d+]/g, "")}`}
-                      className="w-fit text-muted-foreground underline-offset-4 hover:underline"
-                    >
-                      {phone}
-                    </a>
-                  ))}
+                  {contact.phones.map((phone) => {
+                    const chat = whatsappLink(phone)
+                    return (
+                      <span key={phone} className="flex items-center gap-1.5">
+                        <a
+                          href={`tel:${phone.replace(/[^\d+]/g, "")}`}
+                          className="w-fit text-muted-foreground underline-offset-4 hover:underline"
+                        >
+                          {phone}
+                        </a>
+                        {chat && (
+                          <a
+                            href={chat}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Chat with ${contact.name} on WhatsApp (${phone})`}
+                            title="Open WhatsApp chat"
+                            className="inline-flex size-6 items-center justify-center rounded-md text-emerald-600 hover:bg-accent dark:text-emerald-400"
+                          >
+                            <MessageCircleIcon className="size-4" />
+                          </a>
+                        )}
+                      </span>
+                    )
+                  })}
                   {contact.emails.map((email) => (
                     <a
                       key={email}
@@ -50,6 +70,7 @@ export function ContactsPage() {
                   {contact.phones.length + contact.emails.length === 0 && (
                     <span className="text-muted-foreground">No phone number or email</span>
                   )}
+                  <CreatedDate iso={contact.createdAt} />
                 </div>
                 <div className="flex shrink-0 items-center">
                   <ContactDialog contact={contact} />

@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { userMessage } from "@/lib/http/errors"
+import { DEFAULT_COUNTRY_CODE } from "@/lib/phone"
 
 import { useCreateContact, useUpdateContact } from "../hooks"
 import { createContactInputSchema, MAX_EMAILS, MAX_PHONES, type Contact } from "../types"
@@ -148,7 +149,7 @@ export function ContactDialog({ contact }: { contact?: Contact }) {
             <DialogDescription>
               {contact
                 ? "Change this contact’s details."
-                : "Save a name with phone numbers and emails you can link debts to."}
+                : "Only the name is required. Add phone numbers and emails if you want them."}
             </DialogDescription>
           </DialogHeader>
 
@@ -179,6 +180,10 @@ export function ContactDialog({ contact }: { contact?: Contact }) {
               placeholder: "+961 70 123 456",
             }}
           />
+
+          <p className="-mt-2 text-xs text-muted-foreground">
+            The country code (+{DEFAULT_COUNTRY_CODE}) is added automatically when a number has none.
+          </p>
 
           <ValueList
             label="Emails"

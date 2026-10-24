@@ -1,11 +1,11 @@
 import { getProject } from "@/features/projects/server";
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { taskSchema, type CreateTaskInput, type Task } from "./types";
 
 // Server-only: persistence for tasks. Used by app/api/tasks.
 
-const store = createJsonStore("tasks", taskSchema);
+const store = createSupabaseStore({ table: "tasks", schema: taskSchema });
 
 export class ProjectNotFoundError extends Error {
   constructor() {

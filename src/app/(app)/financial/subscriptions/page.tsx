@@ -1,5 +1,5 @@
-import { PagePlaceholder } from "@/components/dashboard/page-placeholder"
+import { SubscriptionsPage } from "@/features/subscriptions"
 
-export default function SubscriptionsPage() {
-  return <PagePlaceholder title="Subscriptions" />
+export default function Page() {
+  return <SubscriptionsPage />
 }

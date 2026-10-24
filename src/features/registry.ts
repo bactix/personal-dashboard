@@ -1,21 +1,18 @@
 import type { WidgetDefinition } from "@/types/widget";
 
-import { accountingStatsWidget } from "./accounting";
-import { assetsStatsWidget } from "./assets";
 import { contactsStatsWidget } from "./contacts";
-import { debtsStatsWidget } from "./debts";
+import { debtsWidget } from "./debts";
+import { exchangeRatesWidget } from "./exchange-rates";
 import { helpDeskStatsWidget } from "./helpdesk";
+import { metalsWidget } from "./metals";
 import { projectsStatsWidget, projectsWidget } from "./projects";
 import { purchasesStatsWidget } from "./purchases";
-import { worldClocksWidget } from "./settings";
+import { worldClocksListWidget, worldClocksWidget } from "./settings";
 import { tasksStatsWidget, tasksWidget } from "./tasks";
 import {
-  accountsStatsWidget,
-  budgetsStatsWidget,
-  goalsStatsWidget,
-  transactionsStatsWidget,
+  transactionsHistoryWidget,
   transactionsWidget,
-  walletsStatsWidget,
+  walletsOverviewWidget,
   walletsWidget,
 } from "./wallets";
 
@@ -31,19 +28,18 @@ export const widgets: WidgetDefinition[] = [
   worldClocksWidget,
 ];
 
-/** Widgets for the Stats page, in display order. */
-export const statsWidgets: WidgetDefinition[] = [
-  debtsStatsWidget,
-  walletsStatsWidget,
-  accountsStatsWidget,
-  transactionsStatsWidget,
-  goalsStatsWidget,
-  budgetsStatsWidget,
-  assetsStatsWidget,
-  accountingStatsWidget,
-  projectsStatsWidget,
-  tasksStatsWidget,
-  helpDeskStatsWidget,
-  purchasesStatsWidget,
-  contactsStatsWidget,
-];
+/**
+ * Dashboard widgets for each sidebar list (Financial, Work, Personal), in display order.
+ * Each list's overview page renders its entry here.
+ */
+export const sectionWidgets = {
+  financial: [
+    metalsWidget,
+    walletsOverviewWidget,
+    debtsWidget,
+    exchangeRatesWidget,
+    transactionsHistoryWidget,
+  ],
+  work: [tasksWidget, projectsWidget, projectsStatsWidget, tasksStatsWidget, helpDeskStatsWidget],
+  personal: [worldClocksListWidget, purchasesStatsWidget, contactsStatsWidget],
+} satisfies Record<string, WidgetDefinition[]>;

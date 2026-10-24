@@ -1,4 +1,4 @@
-export type NotificationKind = "invoice" | "bill" | "task" | "project" | "prayer";
+export type NotificationKind = "invoice" | "bill" | "task" | "project" | "prayer" | "subscription";
 
 /** `overdue` needs action now, `soon` is coming up, `info` is just a heads-up. */
 export type NotificationSeverity = "overdue" | "soon" | "info";

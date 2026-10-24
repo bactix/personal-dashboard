@@ -19,6 +19,8 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid date");
 
 const fields = {
   name: z.string().trim().min(1, "Name is required").max(150, "Name is too long"),
+  /** What the task involves. Optional, so tasks saved before this existed still load. */
+  description: z.string().trim().max(2000, "Description is too long").optional(),
   /** Day the task starts (yyyy-mm-dd). Defaults to the day it was created. */
   startDate: isoDate.optional(),
   /** Optional end day (yyyy-mm-dd). Tasks without one are listed after dated tasks. */

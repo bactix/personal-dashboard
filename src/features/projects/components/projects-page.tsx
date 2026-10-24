@@ -17,6 +17,7 @@ import {
 
 import { usePagination } from "@/hooks/use-pagination"
 import { useToday } from "@/hooks/use-today"
+import { formatCreatedDate } from "@/lib/dates"
 
 import { useDeleteProject, useProjects } from "../hooks"
 import { statusOf } from "../status"
@@ -49,6 +50,7 @@ export function ProjectsPage() {
                 <TableHead>Start</TableHead>
                 <TableHead>End</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="w-20">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -83,6 +85,7 @@ export function ProjectsPage() {
                     <TableCell>
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatCreatedDate(project.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end">
                         <ProjectDialog project={project} />

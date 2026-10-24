@@ -1,20 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { deleteAccount, deleteBudget, deleteGoal, deleteTransaction, deleteWallet, fetchAccounts, fetchBudgets, fetchGoals, fetchTransactions, fetchWallets, postAccount, postBudget, postGoal, postTransaction, postWallet, putAccount, putBudget, putGoal, putTransaction, putWallet } from "./api";
-import type { CreateAccountInput, CreateBudgetInput, CreateGoalInput, CreateTransactionInput, CreateWalletInput } from "./types";
+import { deleteTransfer, postTransfer, deleteBudget, deleteGoal, deleteTransaction, deleteWallet, fetchBudgets, fetchGoals, fetchTransactions, fetchWallets, postBudget, postGoal, postTransaction, postWallet, putBudget, putGoal, putTransaction, putWallet } from "./api";
+import type { CreateBudgetInput, CreateGoalInput, CreateTransactionInput, CreateWalletInput } from "./types";
 
 export const walletsQueryKey = ["wallets"] as const;
 export const budgetsQueryKey = ["budgets"] as const;
 export const goalsQueryKey = ["goals"] as const;
-export const accountsQueryKey = ["accounts"] as const;
 export const transactionsQueryKey = ["transactions"] as const;
 
 export function useWallets() {
   return useQuery({ queryKey: walletsQueryKey, queryFn: fetchWallets });
-}
-
-export function useAccounts() {
-  return useQuery({ queryKey: accountsQueryKey, queryFn: fetchAccounts });
 }
 
 export function useTransactions() {
@@ -26,14 +21,6 @@ export function useCreateWallet() {
   return useMutation({
     mutationFn: postWallet,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: walletsQueryKey }),
-  });
-}
-
-export function useCreateAccount() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: postAccount,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: accountsQueryKey }),
   });
 }
 
@@ -51,14 +38,6 @@ export function useDeleteWallet() {
   return useMutation({
     mutationFn: deleteWallet,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: walletsQueryKey }),
-  });
-}
-
-export function useDeleteAccount() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: deleteAccount,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: accountsQueryKey }),
   });
 }
 
@@ -138,18 +117,27 @@ export function useUpdateWallet() {
   });
 }
 
-export function useUpdateAccount() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: CreateAccountInput }) => putAccount(id, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: accountsQueryKey }),
-  });
-}
-
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: CreateTransactionInput }) => putTransaction(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
+  });
+}
+
+export function useCreateTransfer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: postTransfer,
+    // A transfer adds two transactions; balances are derived from them.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
+  });
+}
+
+export function useDeleteTransfer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteTransfer,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
   });
 }

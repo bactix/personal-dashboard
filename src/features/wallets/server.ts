@@ -1,20 +1,20 @@
+import { randomUUID } from "node:crypto";
+
 import { InUseError } from "@/lib/api/delete-route";
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { computeBalances } from "./balances";
 import {
-  accountSchema,
   budgetSchema,
   budgetTitle,
   goalRecordSchema,
   transactionSchema,
   walletSchema,
-  type Account,
   type Budget,
-  type CreateAccountInput,
   type CreateBudgetInput,
   type CreateGoalInput,
   type CreateTransactionInput,
+  type CreateTransferInput,
   type CreateWalletInput,
   type Goal,
   type Transaction,
@@ -24,23 +24,32 @@ import {
 // Server-only: persistence for wallets and their transactions.
 // Used by app/api/wallets and app/api/transactions.
 
-const wallets = createJsonStore("wallets", walletSchema);
-const accounts = createJsonStore("accounts", accountSchema);
-const transactions = createJsonStore("transactions", transactionSchema);
-const goals = createJsonStore("goals", goalRecordSchema);
-const budgets = createJsonStore("budgets", budgetSchema);
+// The wallet's starting balance is the `amount` column: a decimal in whole currency units,
+// while the app works in cents.
+const wallets = createSupabaseStore({
+  table: "wallets",
+  schema: walletSchema,
+  exclude: ["startingCents"],
+  readFix(candidate, raw) {
+    candidate.startingCents = Math.round(Number(raw.amount ?? 0) * 100);
+  },
+  writeFix(row, input) {
+    row.amount = input.startingCents / 100;
+  },
+});
+// The app calls a transaction's day `date`; the column is `txn_date`.
+const transactions = createSupabaseStore({
+  table: "transactions",
+  schema: transactionSchema,
+  rename: { date: "txn_date" },
+});
+const goals = createSupabaseStore({ table: "goals", schema: goalRecordSchema });
+const budgets = createSupabaseStore({ table: "budgets", schema: budgetSchema });
 
 export class WalletNotFoundError extends Error {
   constructor() {
     super("Wallet not found");
     this.name = "WalletNotFoundError";
-  }
-}
-
-export class AccountNotFoundError extends Error {
-  constructor() {
-    super("Account not found");
-    this.name = "AccountNotFoundError";
   }
 }
 
@@ -51,6 +60,44 @@ export class InsufficientFundsError extends Error {
   }
 }
 
+/** A transfer that can't happen (same wallet, different currencies); routes map it to a 400. */
+export class TransferError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TransferError";
+  }
+}
+
+export class BudgetNotFoundError extends Error {
+  constructor() {
+    super("Budget not found");
+    this.name = "BudgetNotFoundError";
+  }
+}
+
+/** The chosen budget can't take this transaction (wrong currency, or not a withdrawal). */
+export class BudgetMismatchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BudgetMismatchError";
+  }
+}
+
+/** A transaction may be registered to a budget only if it is a withdrawal in the budget's currency. */
+async function assertBudgetFits(input: CreateTransactionInput, walletCurrency: string) {
+  if (!input.budgetId) return;
+  if (input.type !== "withdrawal") {
+    throw new BudgetMismatchError("Only money taken out can be registered to a budget.");
+  }
+  const budget = await budgets.get(input.budgetId);
+  if (!budget) throw new BudgetNotFoundError();
+  if (budget.currency !== walletCurrency) {
+    throw new BudgetMismatchError(`That budget is in ${budget.currency}, but this wallet uses ${walletCurrency}.`);
+  }
+}
+
+const TRANSFER_LOCKED = "This transaction is part of a transfer. Delete the transfer instead.";
+
 export async function listWallets(): Promise<Wallet[]> {
   const all = await wallets.list();
   return all.sort((a, b) => a.name.localeCompare(b.name));
@@ -60,15 +107,6 @@ export function createWallet(input: CreateWalletInput): Promise<Wallet> {
   return wallets.create(input);
 }
 
-export async function listAccounts(): Promise<Account[]> {
-  const all = await accounts.list();
-  return all.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-export function createAccount(input: CreateAccountInput): Promise<Account> {
-  return accounts.create(input);
-}
-
 /** Newest first. */
 export async function listTransactions(): Promise<Transaction[]> {
   const all = await transactions.list();
@@ -76,11 +114,13 @@ export async function listTransactions(): Promise<Transaction[]> {
 }
 
 export async function createTransaction(input: CreateTransactionInput): Promise<Transaction> {
-  if (!(await wallets.get(input.walletId))) throw new WalletNotFoundError();
-  if (input.accountId && !(await accounts.get(input.accountId))) throw new AccountNotFoundError();
+  const wallet = await wallets.get(input.walletId);
+  if (!wallet) throw new WalletNotFoundError();
+  await assertBudgetFits(input, wallet.currency);
 
   if (input.type === "withdrawal") {
-    const balance = computeBalances(await transactions.list()).get(input.walletId) ?? 0;
+    const balance =
+      computeBalances(await transactions.list(), await wallets.list()).get(input.walletId) ?? 0;
     if (input.amountCents > balance) throw new InsufficientFundsError();
   }
   return transactions.create(input);
@@ -119,7 +159,7 @@ export async function listGoals(): Promise<Goal[]> {
 
 /** Creating a goal creates the wallet that will hold its money. */
 export async function createGoal(input: CreateGoalInput): Promise<Goal> {
-  const wallet = await wallets.create({ name: input.name, currency: input.currency });
+  const wallet = await wallets.create({ name: input.name, currency: input.currency, startingCents: 0 });
   try {
     const record = await goals.create({
       walletId: wallet.id,
@@ -145,7 +185,12 @@ export async function updateGoal(id: string, input: CreateGoalInput): Promise<Go
   const record = await goals.get(id);
   if (!record) return undefined;
   // Name and currency live on the wallet; this also blocks a currency change once it has transactions.
-  const wallet = await updateWallet(record.walletId, { name: input.name, currency: input.currency });
+  const current = await wallets.get(record.walletId);
+  const wallet = await updateWallet(record.walletId, {
+    name: input.name,
+    currency: input.currency,
+    startingCents: current?.startingCents ?? 0, // a goal edit never touches the starting balance
+  });
   if (!wallet) return undefined;
   const updated = await goals.update(id, {
     walletId: record.walletId,
@@ -181,12 +226,10 @@ export async function listBudgets(): Promise<Budget[]> {
 }
 
 export async function createBudget(input: CreateBudgetInput): Promise<Budget> {
-  if (input.accountId && !(await accounts.get(input.accountId))) throw new AccountNotFoundError();
   return budgets.create(input);
 }
 
 export async function updateBudget(id: string, input: CreateBudgetInput): Promise<Budget | undefined> {
-  if (input.accountId && !(await accounts.get(input.accountId))) throw new AccountNotFoundError();
   return budgets.update(id, input);
 }
 
@@ -194,22 +237,13 @@ export function removeBudget(id: string): Promise<boolean> {
   return budgets.remove(id);
 }
 
-export async function removeAccount(id: string): Promise<boolean> {
-  if ((await budgets.list()).some((budget) => budget.accountId === id)) {
-    throw new InUseError("This account is used by a budget. Delete or change that budget first.");
-  }
-  if ((await transactions.list()).some((transaction) => transaction.accountId === id)) {
-    throw new InUseError("This account has transactions. Delete or reassign those first.");
-  }
-  return accounts.remove(id);
-}
-
 export async function removeTransaction(id: string): Promise<boolean> {
   const all = await transactions.list();
   const target = all.find((transaction) => transaction.id === id);
   if (!target) return false;
+  if (target.transferId) throw new InUseError(TRANSFER_LOCKED);
   if (target.type === "deposit") {
-    const balance = computeBalances(all).get(target.walletId) ?? 0;
+    const balance = computeBalances(all, await wallets.list()).get(target.walletId) ?? 0;
     if (balance - target.amountCents < 0) {
       throw new InUseError("Deleting this deposit would leave the wallet with a negative balance.");
     }
@@ -226,11 +260,16 @@ export async function updateWallet(id: string, input: CreateWalletInput): Promis
   ) {
     throw new InUseError("This wallet has transactions, so its currency can't be changed.");
   }
+  if (input.startingCents < current.startingCents) {
+    // Lowering the starting balance must not push the wallet below zero.
+    const all = await transactions.list();
+    const mine = all.filter((transaction) => transaction.walletId === id);
+    const balance = computeBalances(mine, [{ id, startingCents: input.startingCents }]).get(id) ?? 0;
+    if (balance < 0) {
+      throw new InUseError("That starting balance would leave this wallet with a negative balance.");
+    }
+  }
   return wallets.update(id, input);
-}
-
-export function updateAccount(id: string, input: CreateAccountInput): Promise<Account | undefined> {
-  return accounts.update(id, input);
 }
 
 export async function updateTransaction(
@@ -240,13 +279,16 @@ export async function updateTransaction(
   const all = await transactions.list();
   const current = all.find((transaction) => transaction.id === id);
   if (!current) return undefined;
+  if (current.transferId) throw new InUseError(TRANSFER_LOCKED);
 
-  if (!(await wallets.get(input.walletId))) throw new WalletNotFoundError();
-  if (input.accountId && !(await accounts.get(input.accountId))) throw new AccountNotFoundError();
+  const wallet = await wallets.get(input.walletId);
+  if (!wallet) throw new WalletNotFoundError();
+  await assertBudgetFits(input, wallet.currency);
 
   // The edit must not leave either the old or the new wallet with a negative balance.
   const balances = computeBalances(
-    all.map((transaction) => (transaction.id === id ? { ...transaction, ...input } : transaction))
+    all.map((transaction) => (transaction.id === id ? { ...transaction, ...input } : transaction)),
+    await wallets.list()
   );
   for (const walletId of new Set([current.walletId, input.walletId])) {
     if ((balances.get(walletId) ?? 0) < 0) {
@@ -254,4 +296,64 @@ export async function updateTransaction(
     }
   }
   return transactions.update(id, input);
+}
+
+/**
+ * Moves money between two wallets: a withdrawal from `from` and a deposit into `to`, linked by
+ * one transfer id. Both wallets must use the same currency and `from` must hold enough.
+ */
+export async function createTransfer(
+  input: CreateTransferInput
+): Promise<{ transferId: string; withdrawal: Transaction; deposit: Transaction }> {
+  const [from, to] = await Promise.all([wallets.get(input.fromWalletId), wallets.get(input.toWalletId)]);
+  if (!from || !to) throw new WalletNotFoundError();
+  if (from.id === to.id) throw new TransferError("Choose two different wallets");
+  if (from.currency !== to.currency) {
+    throw new TransferError(`${from.name} uses ${from.currency} and ${to.name} uses ${to.currency}. Transfers need the same currency.`);
+  }
+
+  const balance = computeBalances(await transactions.list(), await wallets.list()).get(from.id) ?? 0;
+  if (input.amountCents > balance) throw new InsufficientFundsError();
+
+  const transferId = randomUUID();
+  const withdrawal = await transactions.create({
+    walletId: from.id,
+    type: "withdrawal",
+    amountCents: input.amountCents,
+    note: input.note ? `Transfer to ${to.name}: ${input.note}` : `Transfer to ${to.name}`,
+    date: input.date,
+    transferId,
+  });
+  try {
+    const deposit = await transactions.create({
+      walletId: to.id,
+      type: "deposit",
+      amountCents: input.amountCents,
+      note: input.note ? `Transfer from ${from.name}: ${input.note}` : `Transfer from ${from.name}`,
+      date: input.date,
+      transferId,
+    });
+    return { transferId, withdrawal, deposit };
+  } catch (error) {
+    await transactions.remove(withdrawal.id); // never leave half a transfer behind
+    throw error;
+  }
+}
+
+/** Deletes both sides of a transfer. False when no such transfer exists. */
+export async function removeTransfer(transferId: string): Promise<boolean> {
+  const all = await transactions.list();
+  const legs = all.filter((transaction) => transaction.transferId === transferId);
+  if (legs.length === 0) return false;
+
+  // Taking the money back out of the receiving wallet must not leave it below zero.
+  const deposit = legs.find((leg) => leg.type === "deposit");
+  if (deposit) {
+    const balance = computeBalances(all, await wallets.list()).get(deposit.walletId) ?? 0;
+    if (balance - deposit.amountCents < 0) {
+      throw new InUseError("The money from this transfer has already been spent, so it can't be deleted.");
+    }
+  }
+  for (const leg of legs) await transactions.remove(leg.id);
+  return true;
 }

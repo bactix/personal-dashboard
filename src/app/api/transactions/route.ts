@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 
 import {
-  AccountNotFoundError,
+  BudgetMismatchError,
+  BudgetNotFoundError,
   InsufficientFundsError,
   WalletNotFoundError,
   createTransaction,
@@ -28,7 +29,8 @@ export async function POST(request: Request) {
   } catch (error) {
     if (
       error instanceof WalletNotFoundError ||
-      error instanceof AccountNotFoundError ||
+      error instanceof BudgetNotFoundError ||
+      error instanceof BudgetMismatchError ||
       error instanceof InsufficientFundsError
     ) {
       return NextResponse.json({ error: error.message }, { status: 400 })

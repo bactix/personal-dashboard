@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { usePagination } from "@/hooks/use-pagination"
+import { formatCreatedDate } from "@/lib/dates"
 
 import { useDeleteTicket, useTickets } from "../hooks"
 import {
@@ -59,6 +60,7 @@ export function HelpDeskPage() {
                 <TableHead>Requested by</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="w-20">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -86,6 +88,7 @@ export function HelpDeskPage() {
                       {ticketStatusLabel(ticket.status)}
                     </Badge>
                   </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatCreatedDate(ticket.createdAt)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end">
                       <TicketDialog ticket={ticket} />

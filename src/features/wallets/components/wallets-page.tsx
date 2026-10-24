@@ -13,9 +13,11 @@ import {
 } from "@/components/ui/table"
 import { usePagination } from "@/hooks/use-pagination"
 import { formatMoney } from "@/lib/money"
+import { formatCreatedDate } from "@/lib/dates"
 
 import { computeBalances } from "../balances"
 import { useDeleteWallet, useTransactions, useWallets } from "../hooks"
+import { TransferDialog } from "./transfer-dialog"
 import { WalletDialog } from "./wallet-dialog"
 
 export function WalletsPage() {
@@ -24,7 +26,7 @@ export function WalletsPage() {
   const transactions = useTransactions()
   const wallets = query.data ?? []
   const pagination = usePagination(wallets)
-  const balances = computeBalances(transactions.data ?? [])
+  const balances = computeBalances(transactions.data ?? [], wallets)
 
   return (
     <div className="px-4 lg:px-6">
@@ -33,7 +35,12 @@ export function WalletsPage() {
           title="Wallets"
           description={query.data ? `${wallets.length} total` : undefined}
           query={query}
-          action={<WalletDialog />}
+          action={
+            <>
+              <TransferDialog />
+              <WalletDialog />
+            </>
+          }
           isEmpty={wallets.length === 0}
           emptyMessage="No wallets yet. Use Add wallet to create one, then record transactions."
         >
@@ -43,6 +50,7 @@ export function WalletsPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Currency</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="w-20">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -60,6 +68,7 @@ export function WalletsPage() {
                       ? "…"
                       : formatMoney(balances.get(wallet.id) ?? 0, wallet.currency)}
                   </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatCreatedDate(wallet.createdAt)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end">
                       <WalletDialog wallet={wallet} />

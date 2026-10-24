@@ -15,6 +15,7 @@ import {
 
 import { useProjects } from "@/features/projects"
 import { usePagination } from "@/hooks/use-pagination"
+import { formatCreatedDate } from "@/lib/dates"
 
 import { useDeleteTask, useTasks } from "../hooks"
 import { taskCategoryLabel, type Task } from "../types"
@@ -59,6 +60,7 @@ export function TasksPage() {
                 <TableHead>Start</TableHead>
                 <TableHead>End</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="w-20">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -69,8 +71,13 @@ export function TasksPage() {
                 const status = endStatus(task)
                 return (
                   <TableRow key={task.id}>
-                    <TableCell className="font-medium whitespace-normal break-words">
-                      {task.name}
+                    <TableCell className="whitespace-normal">
+                      <span className="font-medium wrap-break-word">{task.name}</span>
+                      {task.description && (
+                        <p className="mt-0.5 line-clamp-2 text-xs whitespace-pre-line text-muted-foreground">
+                          {task.description}
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="whitespace-normal break-words text-muted-foreground">
                       {task.projectId ? (
@@ -86,6 +93,7 @@ export function TasksPage() {
                     <TableCell>
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatCreatedDate(task.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end">
                         <TaskDialog task={task} />

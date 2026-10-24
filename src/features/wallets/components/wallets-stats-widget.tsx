@@ -13,7 +13,7 @@ export function WalletsStatsWidget() {
   const query = combineQueries(walletsQuery, transactionsQuery)
 
   const wallets = walletsQuery.data ?? []
-  const balances = computeBalances(transactionsQuery.data ?? [])
+  const balances = computeBalances(transactionsQuery.data ?? [], wallets)
 
   const totals = CURRENCIES.flatMap((currency) => {
     const inCurrency = wallets.filter((wallet) => wallet.currency === currency)

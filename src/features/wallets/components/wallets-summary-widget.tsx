@@ -14,7 +14,7 @@ export function WalletsSummaryWidget() {
   const query = useWallets()
   const transactions = useTransactions()
   const wallets = query.data ?? []
-  const balances = computeBalances(transactions.data ?? [])
+  const balances = computeBalances(transactions.data ?? [], wallets)
 
   return (
     <WidgetCard

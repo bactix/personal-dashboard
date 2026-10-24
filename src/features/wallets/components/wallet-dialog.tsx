@@ -24,10 +24,22 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { userMessage } from "@/lib/http/errors"
-import { CURRENCIES, type Currency } from "@/lib/money"
+import { CURRENCIES, parseAmountToCents, type Currency } from "@/lib/money"
 
 import { useCreateWallet, useUpdateWallet } from "../hooks"
 import { createWalletInputSchema, type Wallet } from "../types"
+
+/** Starting balance as the form shows it: empty when there is none. */
+function startingText(cents: number | undefined): string {
+  return cents ? (cents / 100).toFixed(2) : ""
+}
+
+/** Cents for the typed starting balance: blank or zero is 0, anything invalid is null. */
+function parseStarting(text: string): number | null {
+  const normalized = text.trim().replace(/,/g, "")
+  if (normalized === "" || /^0+(\.0{1,2})?$/.test(normalized)) return 0
+  return parseAmountToCents(normalized)
+}
 
 /** Add form, or edit form when `wallet` is given. */
 export function WalletDialog({ wallet }: { wallet?: Wallet }) {
@@ -38,18 +50,22 @@ export function WalletDialog({ wallet }: { wallet?: Wallet }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(wallet?.name ?? "")
   const [currency, setCurrency] = useState<Currency>(wallet?.currency ?? "USD")
+  const [starting, setStarting] = useState(startingText(wallet?.startingCents))
   const [error, setError] = useState<string | null>(null)
 
   /** Fills the form from the wallet (edit) or clears it (add). Runs on open and close. */
   function load() {
     setName(wallet?.name ?? "")
     setCurrency(wallet?.currency ?? "USD")
+    setStarting(startingText(wallet?.startingCents))
     setError(null)
   }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault()
-    const parsed = createWalletInputSchema.safeParse({ name, currency })
+    const startingCents = parseStarting(starting)
+    if (startingCents === null) return setError("Enter a valid starting balance, e.g. 150.50")
+    const parsed = createWalletInputSchema.safeParse({ name, currency, startingCents })
     if (!parsed.success) return setError(parsed.error.issues[0].message)
 
     setError(null)
@@ -115,6 +131,22 @@ export function WalletDialog({ wallet }: { wallet?: Wallet }) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="wallet-starting">Starting balance (optional)</Label>
+            <Input
+              id="wallet-starting"
+              inputMode="decimal"
+              autoComplete="off"
+              value={starting}
+              onChange={(event) => setStarting(event.target.value)}
+              aria-invalid={!!error}
+              placeholder="0.00"
+            />
+            <p className="text-xs text-muted-foreground">
+              Money already in the wallet. Deposits and withdrawals count on top of it.
+            </p>
           </div>
 
           {error && (

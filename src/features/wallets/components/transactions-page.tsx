@@ -15,20 +15,23 @@ import {
 import { usePagination } from "@/hooks/use-pagination"
 import { formatMoney } from "@/lib/money"
 import { cn } from "@/lib/utils"
+import { formatCreatedDate } from "@/lib/dates"
 
-import { signedCents } from "../balances"
-import { useAccounts, useDeleteTransaction, useTransactions, useWallets } from "../hooks"
+import { signedCents, transactionKindLabel } from "../balances"
+import { useBudgets, useDeleteTransaction, useDeleteTransfer, useTransactions, useWallets } from "../hooks"
+import { budgetTitle } from "../types"
 import { TransactionDialog } from "./transaction-dialog"
 
 export function TransactionsPage() {
   const query = useTransactions()
   const deleteTransaction = useDeleteTransaction()
+  const deleteTransfer = useDeleteTransfer()
   const wallets = useWallets()
-  const accounts = useAccounts()
+  const budgets = useBudgets()
   const transactions = query.data ?? []
   const pagination = usePagination(transactions)
   const walletById = new Map(wallets.data?.map((wallet) => [wallet.id, wallet]))
-  const accountNameById = new Map(accounts.data?.map((account) => [account.id, account.name]))
+  const budgetNameById = new Map(budgets.data?.map((budget) => [budget.id, budgetTitle(budget)]))
 
   return (
     <div className="px-4 lg:px-6">
@@ -37,19 +40,25 @@ export function TransactionsPage() {
           title="Transactions"
           description={query.data ? `${transactions.length} total` : undefined}
           query={query}
-          action={<TransactionDialog />}
+          action={
+            <>
+              <TransactionDialog kind="deposit" />
+              <TransactionDialog kind="withdrawal" />
+            </>
+          }
           isEmpty={transactions.length === 0}
-          emptyMessage="No transactions yet. Use Add transaction to record one."
+          emptyMessage="No transactions yet. Use Add money or Take money to record one."
         >
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Wallet</TableHead>
-                <TableHead>Account</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Budget</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Note</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="w-20">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -65,15 +74,13 @@ export function TransactionsPage() {
                     <TableCell className="font-medium whitespace-normal break-words">
                       {wallet?.name ?? "Unknown wallet"}
                     </TableCell>
-                    <TableCell className="whitespace-normal break-words text-muted-foreground">
-                      {transaction.accountId
-                        ? (accountNameById.get(transaction.accountId) ?? "Unknown account")
-                        : "—"}
-                    </TableCell>
                     <TableCell>
                       <Badge variant={transaction.type === "deposit" ? "secondary" : "outline"}>
-                        {transaction.type === "deposit" ? "Added" : "Taken"}
+                        {transactionKindLabel(transaction)}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="whitespace-normal wrap-break-word text-muted-foreground">
+                      {transaction.budgetId ? (budgetNameById.get(transaction.budgetId) ?? "Unknown budget") : "—"}
                     </TableCell>
                     <TableCell
                       className={cn(
@@ -87,13 +94,24 @@ export function TransactionsPage() {
                     <TableCell className="max-w-48 truncate text-muted-foreground">
                       {transaction.note ?? "—"}
                     </TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatCreatedDate(transaction.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end">
-                        <TransactionDialog transaction={transaction} />
-                        <DeleteButton
-                          itemLabel={"transaction"}
-                          onDelete={() => deleteTransaction.mutateAsync(transaction.id)}
-                        />
+                        {transaction.transferId ? (
+                          // A transfer has two sides; it can only be removed as a whole.
+                          <DeleteButton
+                            itemLabel="transfer (both sides)"
+                            onDelete={() => deleteTransfer.mutateAsync(transaction.transferId!)}
+                          />
+                        ) : (
+                          <>
+                            <TransactionDialog transaction={transaction} />
+                            <DeleteButton
+                              itemLabel={"transaction"}
+                              onDelete={() => deleteTransaction.mutateAsync(transaction.id)}
+                            />
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

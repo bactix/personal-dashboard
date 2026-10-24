@@ -143,6 +143,37 @@ export function projectNotifications(
   });
 }
 
+/** Active subscriptions renewing within the next few days. `nextRenewal` is already worked out. */
+export function subscriptionNotifications(
+  subscriptions: {
+    id: string
+    name: string
+    amountCents: number
+    currency: string
+    cycle: string
+    status: string
+    nextRenewal: string
+  }[],
+  today: string
+): AppNotification[] {
+  return subscriptions.flatMap((subscription) => {
+    if (subscription.status !== "active") return [];
+    // The renewal date is part of the id, so dismissing this charge doesn't hide the next one.
+    const item = dueNotification(
+      {
+        key: `subscription:${subscription.id}:${subscription.nextRenewal}`,
+        kind: "subscription",
+        title: `Subscription “${subscription.name}”`,
+        detail: `${formatMoney(subscription.amountCents, subscription.currency)} · ${subscription.cycle}`,
+        href: "/financial/subscriptions",
+      },
+      subscription.nextRenewal,
+      today
+    );
+    return item ? [item] : [];
+  });
+}
+
 function minutesOf(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;

@@ -4,17 +4,15 @@ import { http } from "@/lib/http/client";
 import { httpDelete } from "@/lib/http/delete";
 
 import {
-  accountSchema,
   budgetSchema,
   goalSchema,
   transactionSchema,
   walletSchema,
-  type Account,
   type Budget,
-  type CreateAccountInput,
   type CreateBudgetInput,
   type CreateGoalInput,
   type CreateTransactionInput,
+  type CreateTransferInput,
   type CreateWalletInput,
   type Goal,
   type Transaction,
@@ -29,14 +27,6 @@ export function postWallet(input: CreateWalletInput): Promise<Wallet> {
   return http("/api/wallets", walletSchema, { method: "POST", json: input });
 }
 
-export function fetchAccounts(): Promise<Account[]> {
-  return http("/api/accounts", z.array(accountSchema));
-}
-
-export function postAccount(input: CreateAccountInput): Promise<Account> {
-  return http("/api/accounts", accountSchema, { method: "POST", json: input });
-}
-
 export function fetchTransactions(): Promise<Transaction[]> {
   return http("/api/transactions", z.array(transactionSchema));
 }
@@ -47,10 +37,6 @@ export function postTransaction(input: CreateTransactionInput): Promise<Transact
 
 export function deleteWallet(id: string): Promise<void> {
   return httpDelete(`/api/wallets/${encodeURIComponent(id)}`);
-}
-
-export function deleteAccount(id: string): Promise<void> {
-  return httpDelete(`/api/accounts/${encodeURIComponent(id)}`);
 }
 
 export function deleteTransaction(id: string): Promise<void> {
@@ -93,10 +79,16 @@ export function putWallet(id: string, input: CreateWalletInput): Promise<Wallet>
   return http(`/api/wallets/${encodeURIComponent(id)}`, walletSchema, { method: "PUT", json: input });
 }
 
-export function putAccount(id: string, input: CreateAccountInput): Promise<Account> {
-  return http(`/api/accounts/${encodeURIComponent(id)}`, accountSchema, { method: "PUT", json: input });
-}
-
 export function putTransaction(id: string, input: CreateTransactionInput): Promise<Transaction> {
   return http(`/api/transactions/${encodeURIComponent(id)}`, transactionSchema, { method: "PUT", json: input });
+}
+
+/** Moves money between two wallets; the result is not used, the lists are refreshed instead. */
+export function postTransfer(input: CreateTransferInput): Promise<unknown> {
+  return http("/api/transfers", z.unknown(), { method: "POST", json: input });
+}
+
+/** `transferId` is shared by both sides of the transfer. */
+export function deleteTransfer(transferId: string): Promise<void> {
+  return httpDelete(`/api/transfers/${encodeURIComponent(transferId)}`);
 }

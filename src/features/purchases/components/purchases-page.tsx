@@ -2,6 +2,7 @@
 
 import { ExternalLinkIcon } from "lucide-react"
 
+import { CreatedDate } from "@/components/dashboard/created-date"
 import { DeleteButton } from "@/components/dashboard/delete-button"
 import { ListPagination } from "@/components/dashboard/list-pagination"
 import { WidgetCard } from "@/components/dashboard/widget-card"
@@ -52,6 +53,7 @@ export function PurchasesPage() {
                     <span className="sr-only">(opens in a new tab)</span>
                   </a>
                 )}
+                <CreatedDate iso={item.createdAt} />
               </div>
               <div className="flex shrink-0 items-center">
                 <PurchaseItemDialog item={item} />

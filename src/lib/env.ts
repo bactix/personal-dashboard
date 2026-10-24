@@ -15,7 +15,13 @@ const serverSchema = z.object({
   AUTH_DISABLED: z.enum(["true", "false"]).optional(),
 
   // Folder (relative to the project root) where the JSON file store keeps personal data
+  // (only used by the one-off import into Supabase now)
   DATA_DIR: z.string().default("data"),
+
+  // Supabase: the database behind every feature. The server uses the SECRET key (never a
+  // NEXT_PUBLIC_ name); the project URL is public by design.
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
 
   // Weather (Open-Meteo is keyless; these only choose the location shown)
   WEATHER_LOCATION_NAME: z.string().default("Beirut"),
@@ -37,6 +43,15 @@ export function getServerEnv() {
     cached = result.data;
   }
   return cached;
+}
+
+/** Supabase URL + secret key for the server. Throws a clear message if either is missing. */
+export function getSupabaseEnv() {
+  const { NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = getServerEnv();
+  if (!NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local");
+  }
+  return { url: NEXT_PUBLIC_SUPABASE_URL, secretKey: SUPABASE_SERVICE_ROLE_KEY };
 }
 
 /** Credentials for the login page. Throws if they are not configured in .env.local. */

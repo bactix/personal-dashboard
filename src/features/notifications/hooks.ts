@@ -8,6 +8,7 @@ import {
 } from "@/features/accounting";
 import { usePrayerTimes } from "@/features/prayer-times";
 import { useProjects } from "@/features/projects";
+import { nextRenewal, useSubscriptions } from "@/features/subscriptions";
 import { useTasks } from "@/features/tasks";
 import { useNow } from "@/hooks/use-now";
 import { useToday } from "@/hooks/use-today";
@@ -17,10 +18,13 @@ import {
   invoiceNotifications,
   prayerNotifications,
   projectNotifications,
+  subscriptionNotifications,
   taskNotifications,
 } from "./build";
 import { useDismissed } from "./dismissed";
 import type { AppNotification, NotificationSeverity } from "./types";
+
+const cycleText = (cycle: string) => cycle.charAt(0).toUpperCase() + cycle.slice(1);
 
 const SEVERITY_ORDER: Record<NotificationSeverity, number> = { overdue: 0, soon: 1, info: 2 };
 
@@ -49,6 +53,7 @@ export function useNotifications() {
   const tasks = useTasks().data;
   const projects = useProjects().data;
   const prayerTimes = usePrayerTimes().data;
+  const subscriptions = useSubscriptions().data;
   const dismissed = useDismissed();
 
   const all = useMemo<AppNotification[]>(() => {
@@ -64,11 +69,19 @@ export function useNotifications() {
       ),
       ...taskNotifications(tasks ?? [], today),
       ...projectNotifications(projects ?? [], today),
+      ...subscriptionNotifications(
+        (subscriptions ?? []).map((subscription) => ({
+          ...subscription,
+          cycle: cycleText(subscription.cycle),
+          nextRenewal: nextRenewal(subscription.startDate, subscription.cycle, today),
+        })),
+        today
+      ),
       ...prayerNotifications(prayerTimes, lebanonMinutes(now)),
     ].sort(
       (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.sortKey - b.sortKey
     );
-  }, [today, now, invoices, bills, tasks, projects, prayerTimes]);
+  }, [today, now, invoices, bills, tasks, projects, prayerTimes, subscriptions]);
 
   const items = all.filter((item) => !dismissed.isDismissed(item.id));
 

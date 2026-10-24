@@ -1,5 +1,6 @@
 "use client"
 
+import { CreatedDate } from "@/components/dashboard/created-date"
 import { DeleteButton } from "@/components/dashboard/delete-button"
 import { ListPagination } from "@/components/dashboard/list-pagination"
 import { WidgetCard } from "@/components/dashboard/widget-card"
@@ -10,17 +11,18 @@ import { formatMoney } from "@/lib/money"
 import { cn } from "@/lib/utils"
 
 import { computeBalances } from "../balances"
-import { useDeleteGoal, useGoals, useTransactions } from "../hooks"
+import { useDeleteGoal, useGoals, useTransactions, useWallets } from "../hooks"
 import { GoalDialog } from "./goal-dialog"
 
 export function GoalsPage() {
   const query = useGoals()
   const deleteGoal = useDeleteGoal()
   const transactions = useTransactions()
+  const wallets = useWallets()
   const today = useToday()
   const goals = query.data ?? []
   const pagination = usePagination(goals)
-  const balances = computeBalances(transactions.data ?? [])
+  const balances = computeBalances(transactions.data ?? [], wallets.data ?? [])
 
   return (
     <div className="px-4 lg:px-6">
@@ -40,7 +42,10 @@ export function GoalsPage() {
               return (
                 <li key={goal.id} className="flex flex-col gap-2 py-3 first:pt-0">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 font-medium break-words">{goal.name}</p>
+                    <div className="min-w-0">
+                      <p className="font-medium break-words">{goal.name}</p>
+                      <CreatedDate iso={goal.createdAt} />
+                    </div>
                     <div className="flex shrink-0 items-center">
                       <GoalDialog goal={goal} />
                       <DeleteButton

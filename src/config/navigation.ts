@@ -1,8 +1,7 @@
 import {
   ArrowLeftRightIcon,
-  BookUserIcon,
+  BookmarkIcon,
   BriefcaseIcon,
-  ChartColumnIcon,
   ContactIcon,
   DatabaseIcon,
   FileTextIcon,
@@ -16,7 +15,6 @@ import {
   LifeBuoyIcon,
   ListChecksIcon,
   SunMoonIcon,
-  PiggyBankIcon,
   ReceiptTextIcon,
   ShoppingCartIcon,
   SettingsIcon,
@@ -27,9 +25,11 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
+import { CowIcon } from "@/components/icons/cow-icon"
+
 export type NavItem = {
   title: string
-  /** Omit for a pure group header (e.g. "Financial") that only expands. */
+  /** For a group: its dashboard page (opened by the name; the arrow expands the sub-pages). */
   href?: string
   icon: LucideIcon
   children?: { title: string; href: string; icon?: LucideIcon }[]
@@ -40,22 +40,23 @@ export const navigation: NavItem[] = [
   { title: "Home", href: "/", icon: HomeIcon },
   {
     title: "Financial",
+    href: "/financial",
     icon: LandmarkIcon,
     children: [
       { title: "Debts", href: "/financial/debts", icon: HandCoinsIcon },
       { title: "Wallets", href: "/financial/wallets", icon: WalletIcon },
-      { title: "Accounts", href: "/financial/accounts", icon: BookUserIcon },
       { title: "Transactions", href: "/financial/transactions", icon: ArrowLeftRightIcon },
       { title: "Subscriptions", href: "/financial/subscriptions", icon: RepeatIcon },
       { title: "Invoices", href: "/financial/invoices", icon: FileTextIcon },
       { title: "Vendor bills", href: "/financial/vendor-bills", icon: ReceiptTextIcon },
       { title: "Assets", href: "/financial/assets", icon: GemIcon },
-      { title: "Budgets", href: "/financial/budgets", icon: PiggyBankIcon },
+      { title: "Budgets", href: "/financial/budgets", icon: CowIcon },
       { title: "Goals", href: "/financial/goals", icon: TargetIcon },
     ],
   },
   {
     title: "Work",
+    href: "/work",
     icon: BriefcaseIcon,
     children: [
       { title: "Projects", href: "/work/projects", icon: FolderKanbanIcon },
@@ -65,16 +66,17 @@ export const navigation: NavItem[] = [
   },
   {
     title: "Personal",
+    href: "/personal",
     icon: UserIcon,
     children: [
       { title: "Purchase", href: "/personal/purchase", icon: ShoppingCartIcon },
       { title: "Contacts", href: "/personal/contacts", icon: ContactIcon },
       { title: "Azkar", href: "/personal/azkar", icon: SunMoonIcon },
+      { title: "Stash", href: "/personal/stash", icon: BookmarkIcon },
       { title: "Time machine", href: "/personal/timezone", icon: GlobeIcon },
     ],
   },
   { title: "Automations", href: "/automations", icon: WorkflowIcon },
-  { title: "Stats", href: "/stats", icon: ChartColumnIcon },
   { title: "Data", href: "/data", icon: DatabaseIcon },
   { title: "Settings", href: "/settings", icon: SettingsIcon },
 ]

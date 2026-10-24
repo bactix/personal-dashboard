@@ -29,6 +29,7 @@ import { userMessage } from "@/lib/http/errors"
 import { CURRENCIES, formatMoney, parseAmountToCents, type Currency } from "@/lib/money"
 
 import { useCreateBill, useUpdateBill } from "../hooks"
+import { ContactCombobox } from "./contact-combobox"
 import { BILL_STATUSES, createBillInputSchema, type Bill, type BillStatus } from "../types"
 
 /** Cents -> the text a person would type, e.g. 2550 -> "25.50". */
@@ -137,11 +138,12 @@ export function BillDialog({ bill }: { bill?: Bill }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="bill-vendor">Vendor</Label>
-              <Input
+              <ContactCombobox
                 id="bill-vendor"
                 value={vendor}
-                onChange={(event) => setVendor(event.target.value)}
+                onValueChange={setVendor}
                 maxLength={80}
+                placeholder="Search your contacts…"
               />
             </div>
             <div className="flex flex-col gap-2">

@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 import { http } from "@/lib/http/client";
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { timezoneSchema, type CityMatch, type CreateTimezoneInput, type Timezone } from "./types";
 
 // Server-only: persistence for dashboard settings (currently the city time zones).
 
-const store = createJsonStore("timezones", timezoneSchema);
+const store = createSupabaseStore({ table: "timezones", schema: timezoneSchema });
 
 export async function listTimezones(): Promise<Timezone[]> {
   const items = await store.list();

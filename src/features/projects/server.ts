@@ -1,10 +1,34 @@
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { projectSchema, type CreateProjectInput, type Project } from "./types";
 
 // Server-only: persistence for projects. Used by app/api/projects.
 
-const store = createJsonStore("projects", projectSchema);
+const store = createSupabaseStore({
+  table: "projects",
+  schema: projectSchema,
+  exclude: ["resources"],
+  children: [
+    {
+      table: "project_resources",
+      fk: "project_id",
+      columns: "title,url,position",
+      order: "position",
+      attach(candidate, rows) {
+        candidate.resources = rows
+          .sort((a, b) => Number(a.position) - Number(b.position))
+          // The database requires a title; a link saved without one is stored as "".
+          .map((row) => ({ title: row.title ? String(row.title) : undefined, url: row.url }));
+      },
+      toRows: (input) =>
+        input.resources.map((resource, position) => ({
+          title: resource.title ?? "",
+          url: resource.url,
+          position,
+        })),
+    },
+  ],
+});
 
 /** Most recent start date first; projects without a start date come last (newest first). */
 export async function listProjects(): Promise<Project[]> {

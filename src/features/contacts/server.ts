@@ -1,10 +1,34 @@
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { contactSchema, type Contact, type CreateContactInput } from "./types";
 
 // Server-only: persistence for contacts. Used by app/api/contacts and (read-only) by debts.
 
-const store = createJsonStore("contacts", contactSchema);
+/** Phones and emails are rows in their own tables, kept in the order they were entered. */
+function listChild(valueColumn: string, key: "phones" | "emails") {
+  return {
+    columns: `${valueColumn},position`,
+    order: "position",
+    attach(candidate: Record<string, unknown>, rows: Record<string, unknown>[]) {
+      candidate[key] = rows
+        .sort((a, b) => Number(a.position) - Number(b.position))
+        .map((row) => row[valueColumn]);
+    },
+    toRows: (input: CreateContactInput) =>
+      // The database allows each number / email once per contact.
+      [...new Set(input[key])].map((value, position) => ({ [valueColumn]: value, position })),
+  };
+}
+
+const store = createSupabaseStore({
+  table: "contacts",
+  schema: contactSchema,
+  exclude: ["phones", "emails"],
+  children: [
+    { table: "contact_phones", fk: "contact_id", ...listChild("phone", "phones") },
+    { table: "contact_emails", fk: "contact_id", ...listChild("email", "emails") },
+  ],
+});
 
 export async function listContacts(): Promise<Contact[]> {
   const contacts = await store.list();

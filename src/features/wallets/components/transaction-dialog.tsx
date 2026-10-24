@@ -1,6 +1,6 @@
 "use client"
 
-import { PlusIcon } from "lucide-react"
+import { MinusIcon, PlusIcon } from "lucide-react"
 import Link from "next/link"
 import { useState, type FormEvent } from "react"
 
@@ -30,38 +30,48 @@ import { formatMoney, parseAmountToCents } from "@/lib/money"
 
 import { computeBalances } from "../balances"
 import {
-  useAccounts,
+  useBudgets,
   useCreateTransaction,
   useTransactions,
   useUpdateTransaction,
   useWallets,
 } from "../hooks"
-import { createTransactionInputSchema, type Transaction, type TransactionType } from "../types"
+import {
+  budgetTitle,
+  createTransactionInputSchema,
+  type Transaction,
+  type TransactionType,
+} from "../types"
 
-const TYPES: { value: TransactionType; label: string; hint: string }[] = [
-  { value: "deposit", label: "Add money", hint: "Into the wallet" },
-  { value: "withdrawal", label: "Take money", hint: "Out of the wallet" },
-]
-
-/** Select needs a non-empty value for the "no account" choice. */
-const NO_ACCOUNT = "none"
+/** Select needs a non-empty value for the "no budget" choice. */
+const NO_BUDGET = "none"
 
 /** Cents -> the text a person would type, e.g. 2550 -> "25.50". */
 const toAmountText = (cents: number) => (cents / 100).toFixed(2)
 
-/** Add form, or edit form when `transaction` is given. */
-export function TransactionDialog({ transaction }: { transaction?: Transaction }) {
+/**
+ * Add form, or edit form when `transaction` is given. A new transaction is either money added
+ * (`kind="deposit"`) or money taken out (`kind="withdrawal"`): each has its own button, so the
+ * form never asks which one. An edited transaction keeps the kind it already has.
+ */
+export function TransactionDialog({
+  transaction,
+  kind = "deposit",
+}: {
+  transaction?: Transaction
+  kind?: TransactionType
+}) {
   const transactions = useTransactions()
   const wallets = useWallets()
-  const accounts = useAccounts()
+  const budgets = useBudgets()
   const createTransaction = useCreateTransaction()
   const updateTransaction = useUpdateTransaction()
   const pending = createTransaction.isPending || updateTransaction.isPending
 
   const [open, setOpen] = useState(false)
-  const [type, setType] = useState<TransactionType>(transaction?.type ?? "deposit")
+  const type: TransactionType = transaction?.type ?? kind
   const [walletId, setWalletId] = useState(transaction?.walletId ?? "")
-  const [accountId, setAccountId] = useState(transaction?.accountId ?? NO_ACCOUNT)
+  const [budgetId, setBudgetId] = useState(transaction?.budgetId ?? NO_BUDGET)
   const [amount, setAmount] = useState(transaction ? toAmountText(transaction.amountCents) : "")
   const today = useToday() ?? ""
   // null = untouched, so the field follows "today" without reading the clock during render.
@@ -70,16 +80,21 @@ export function TransactionDialog({ transaction }: { transaction?: Transaction }
   const [note, setNote] = useState(transaction?.note ?? "")
   const [error, setError] = useState<string | null>(null)
 
-  const balances = computeBalances(transactions.data ?? [])
+  const balances = computeBalances(transactions.data ?? [], wallets.data ?? [])
   const walletById = new Map(wallets.data?.map((wallet) => [wallet.id, wallet]))
   const selectedWallet = walletById.get(walletId)
   const noWallets = wallets.isSuccess && wallets.data.length === 0
+  // Only money taken out can be registered to a budget, and only one in the wallet's currency.
+  const budgetOptions =
+    type === "withdrawal" && selectedWallet
+      ? (budgets.data ?? []).filter((budget) => budget.currency === selectedWallet.currency)
+      : []
+  const chosenBudget = budgetOptions.find((budget) => budget.id === budgetId)
 
   /** Fills the form from the transaction (edit) or clears it (add). Runs on open and close. */
   function load() {
-    setType(transaction?.type ?? "deposit")
     setWalletId(transaction?.walletId ?? "")
-    setAccountId(transaction?.accountId ?? NO_ACCOUNT)
+    setBudgetId(transaction?.budgetId ?? NO_BUDGET)
     setAmount(transaction ? toAmountText(transaction.amountCents) : "")
     setDate(transaction?.date ?? null)
     setNote(transaction?.note ?? "")
@@ -98,7 +113,7 @@ export function TransactionDialog({ transaction }: { transaction?: Transaction }
 
     const parsed = createTransactionInputSchema.safeParse({
       walletId: selectedWallet.id,
-      accountId: accountId === NO_ACCOUNT ? undefined : accountId,
+      budgetId: chosenBudget?.id,
       type,
       amountCents,
       date,
@@ -130,34 +145,34 @@ export function TransactionDialog({ transaction }: { transaction?: Transaction }
       <DialogTrigger asChild>
         {transaction ? (
           <EditTrigger itemLabel="transaction" />
-        ) : (
+        ) : type === "deposit" ? (
           <Button size="sm">
-            <PlusIcon /> Add transaction
+            <PlusIcon /> Add money
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline">
+            <MinusIcon /> Take money
           </Button>
         )}
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{transaction ? "Edit transaction" : "Add transaction"}</DialogTitle>
-            <DialogDescription>Record money going into or out of a wallet.</DialogDescription>
+            <DialogTitle>
+              {transaction
+                ? type === "deposit"
+                  ? "Edit money added"
+                  : "Edit money taken"
+                : type === "deposit"
+                  ? "Add money"
+                  : "Take money"}
+            </DialogTitle>
+            <DialogDescription>
+              {type === "deposit"
+                ? "Put money into a wallet."
+                : "Take money out of a wallet. You can count it against a budget."}
+            </DialogDescription>
           </DialogHeader>
-
-          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Transaction type">
-            {TYPES.map((option) => (
-              <Button
-                key={option.value}
-                type="button"
-                variant={type === option.value ? "default" : "outline"}
-                aria-pressed={type === option.value}
-                onClick={() => setType(option.value)}
-                className="h-auto flex-col gap-0 py-2"
-              >
-                <span>{option.label}</span>
-                <span className="text-xs font-normal opacity-80">{option.hint}</span>
-              </Button>
-            ))}
-          </div>
 
           <div className="flex flex-col gap-2">
             <Label>Wallet</Label>
@@ -195,31 +210,33 @@ export function TransactionDialog({ transaction }: { transaction?: Transaction }
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label>Account (optional)</Label>
-            <Select value={accountId} onValueChange={setAccountId}>
-              <SelectTrigger className="w-full" aria-label="Account">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_ACCOUNT}>No account</SelectItem>
-                {accounts.data?.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {accounts.isSuccess && accounts.data.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No accounts yet.{" "}
-                <Link href="/financial/accounts" className="underline underline-offset-4">
-                  Add an account
-                </Link>
-                .
-              </p>
-            )}
-          </div>
+          {type === "withdrawal" && selectedWallet && (
+            <div className="flex flex-col gap-2">
+              <Label>Budget (optional)</Label>
+              <Select value={chosenBudget?.id ?? NO_BUDGET} onValueChange={setBudgetId}>
+                <SelectTrigger className="w-full" aria-label="Budget">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_BUDGET}>No budget</SelectItem>
+                  {budgetOptions.map((budget) => (
+                    <SelectItem key={budget.id} value={budget.id}>
+                      {budgetTitle(budget)} · {formatMoney(budget.limitCents, budget.currency)} / month
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {budgets.isSuccess && budgetOptions.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No {selectedWallet.currency} budgets yet.{" "}
+                  <Link href="/financial/budgets" className="underline underline-offset-4">
+                    Add a budget
+                  </Link>
+                  .
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
@@ -263,7 +280,7 @@ export function TransactionDialog({ transaction }: { transaction?: Transaction }
 
           <DialogFooter>
             <Button type="submit" disabled={pending || noWallets}>
-              {pending ? "Saving…" : transaction ? "Save changes" : "Save transaction"}
+              {pending ? "Saving…" : transaction ? "Save changes" : type === "deposit" ? "Add money" : "Take money"}
             </Button>
           </DialogFooter>
         </form>

@@ -4,24 +4,23 @@ import { StatList } from "@/components/dashboard/stat-list"
 import { combineQueries, WidgetCard } from "@/components/dashboard/widget-card"
 import { useToday } from "@/hooks/use-today"
 
-import { useBudgets, useTransactions, useWallets } from "../hooks"
+import { useBudgets, useTransactions } from "../hooks"
 import { spentThisMonth } from "../spending"
 import { budgetTitle } from "../types"
 
 export function BudgetsStatsWidget() {
   const budgetsQuery = useBudgets()
   const transactionsQuery = useTransactions()
-  const walletsQuery = useWallets()
-  const query = combineQueries(budgetsQuery, transactionsQuery, walletsQuery)
+  const query = combineQueries(budgetsQuery, transactionsQuery)
   const today = useToday()
 
   const budgets = budgetsQuery.data ?? []
   const month = today?.slice(0, 7)
 
   const usage =
-    month && transactionsQuery.data && walletsQuery.data
+    month && transactionsQuery.data
       ? budgets.map((budget) => {
-          const spent = spentThisMonth(budget, transactionsQuery.data, walletsQuery.data, month)
+          const spent = spentThisMonth(budget, transactionsQuery.data, month)
           return { budget, spent, ratio: spent / budget.limitCents }
         })
       : null

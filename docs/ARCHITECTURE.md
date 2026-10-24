@@ -200,9 +200,13 @@ feature's hook.
 
 ## 12. Persistence and cross-feature use
 
-- Personal data lives in `data/*.json` (git-ignored) via `lib/storage/json-store.ts`: serialized,
-  atomic writes, Zod-validated reads. Only `features/*/server.ts` may use it. The store interface
-  (`list/get/create`) is the seam for a future SQLite/Postgres swap.
+- Personal data lives in Supabase (Postgres). `lib/storage/supabase-store.ts` implements the store
+  interface (`list/get/create/update/remove`) over a table plus optional child tables, converting
+  between the app's camelCase domain objects and snake_case columns and validating every read with the
+  feature's Zod schema. Only `features/*/server.ts` may use it, with the server-only secret key from
+  `lib/supabase/admin.ts`. Row Level Security is on for every table with no policies, so the browser's
+  publishable key cannot read or write data. The earlier `data/*.json` store (`lib/storage/json-store.ts`)
+  is kept only for reference and is no longer used by any feature.
 - A feature may use another through its public entry only (`@/features/contacts`, or
   `@/features/contacts/server` from `server.ts`). Debts -> Contacts is the first such edge; cycles
   are not allowed. Enforced by ESLint.

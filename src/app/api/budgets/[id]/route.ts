@@ -1,4 +1,4 @@
-import { AccountNotFoundError, removeBudget, updateBudget } from "@/features/wallets/server"
+import { removeBudget, updateBudget } from "@/features/wallets/server"
 import { createBudgetInputSchema } from "@/features/wallets/types"
 import { deleteResponse } from "@/lib/api/delete-route"
 import { updateResponse } from "@/lib/api/update-route"
@@ -15,6 +15,5 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     request,
     schema: createBudgetInputSchema,
     update: (input) => updateBudget(id, input),
-    clientErrors: [AccountNotFoundError],
   })
 }

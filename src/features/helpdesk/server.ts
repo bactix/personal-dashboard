@@ -1,10 +1,10 @@
-import { createJsonStore } from "@/lib/storage/json-store";
+import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
 import { ticketSchema, type CreateTicketInput, type Ticket } from "./types";
 
 // Server-only: persistence for help desk tickets. Used by app/api/tickets.
 
-const store = createJsonStore("tickets", ticketSchema);
+const store = createSupabaseStore({ table: "tickets", schema: ticketSchema });
 
 const STATUS_ORDER = { open: 0, "in-progress": 1, resolved: 2 } as const;
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 } as const;
