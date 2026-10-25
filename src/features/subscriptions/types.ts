@@ -46,5 +46,30 @@ export const subscriptionSchema = z.object({
 
 export const createSubscriptionInputSchema = z.object(fields);
 
+/** One recorded payment of a subscription; the money also sits in a wallet transaction. */
+export const subscriptionPaymentSchema = z.object({
+  id: z.string(),
+  subscriptionId: z.string().min(1),
+  transactionId: z.string().min(1),
+  amountCents: z.number().int().positive(),
+  /** The renewal date this payment covers (yyyy-mm-dd). */
+  dueDate: isoDate,
+  /** The day it was actually paid (yyyy-mm-dd). After `dueDate` means late. */
+  paidDate: isoDate,
+  createdAt: z.string(),
+});
+
+/** Paying a subscription from a wallet of the same currency. */
+export const paySubscriptionInputSchema = z.object({
+  walletId: z.string().min(1, "Choose a wallet"),
+  dueDate: isoDate,
+  paidDate: isoDate,
+});
+
+export const isLatePayment = (payment: Pick<SubscriptionPayment, "dueDate" | "paidDate">): boolean =>
+  payment.paidDate > payment.dueDate;
+
+export type SubscriptionPayment = z.infer<typeof subscriptionPaymentSchema>;
+export type PaySubscriptionInput = z.infer<typeof paySubscriptionInputSchema>;
 export type Subscription = z.infer<typeof subscriptionSchema>;
 export type CreateSubscriptionInput = z.infer<typeof createSubscriptionInputSchema>;

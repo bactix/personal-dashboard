@@ -18,9 +18,16 @@ import { useToday } from "@/hooks/use-today"
 import { formatCreatedDate } from "@/lib/dates"
 import { CURRENCIES, formatMoney } from "@/lib/money"
 
-import { useDeleteSubscription, useSubscriptions } from "../hooks"
+import { useDeleteSubscription, useSubscriptionPayments, useSubscriptions } from "../hooks"
 import { daysBetween, monthlyCents, nextRenewal, yearlyCents } from "../renewal"
-import { cycleLabel, statusLabel, type Subscription, type SubscriptionStatus } from "../types"
+import {
+  cycleLabel,
+  isLatePayment,
+  statusLabel,
+  type Subscription,
+  type SubscriptionStatus,
+} from "../types"
+import { PaySubscriptionDialog } from "./pay-subscription-dialog"
 import { SubscriptionDialog } from "./subscription-dialog"
 
 const STATUS_VARIANT: Record<SubscriptionStatus, "default" | "secondary" | "outline"> = {
@@ -61,6 +68,7 @@ function costSummary(active: Subscription[], cost: (s: Subscription) => number):
 export function SubscriptionsPage() {
   const query = useSubscriptions()
   const deleteSubscription = useDeleteSubscription()
+  const paymentList = useSubscriptionPayments().data ?? []
   // null until the browser knows today's date: renewal dates need it.
   const today = useToday()
 
@@ -100,9 +108,10 @@ export function SubscriptionsPage() {
               <TableHead className="text-right">Amount</TableHead>
               <TableHead>Billed</TableHead>
               <TableHead>Next renewal</TableHead>
+              <TableHead>Payment</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead className="w-20">
+              <TableHead className="w-48">
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
@@ -110,6 +119,12 @@ export function SubscriptionsPage() {
           <TableBody>
             {pagination.pageItems.map((subscription) => {
               const renewal = renewalOf(subscription)
+              // Paid for the upcoming renewal, otherwise show the latest payment (payments are newest first).
+              const currentPayment = paymentList.find(
+                (payment) => payment.subscriptionId === subscription.id && payment.dueDate === renewal
+              )
+              const shown =
+                currentPayment ?? paymentList.find((payment) => payment.subscriptionId === subscription.id)
               return (
                 <TableRow key={subscription.id}>
                   <TableCell className="whitespace-normal">
@@ -136,6 +151,20 @@ export function SubscriptionsPage() {
                       "—"
                     )}
                   </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums">
+                    {shown ? (
+                      <>
+                        <Badge variant={isLatePayment(shown) ? "destructive" : "secondary"}>
+                          {isLatePayment(shown) ? "Paid late" : "Paid on time"}
+                        </Badge>
+                        <span className="block text-xs text-muted-foreground">
+                          {shown.paidDate} · due {shown.dueDate}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[subscription.status]}>{statusLabel(subscription.status)}</Badge>
                   </TableCell>
@@ -143,7 +172,13 @@ export function SubscriptionsPage() {
                     {formatCreatedDate(subscription.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end">
+                    <div className="flex items-center justify-end gap-1">
+                      {renewal && !currentPayment && (
+                        <>
+                          <PaySubscriptionDialog subscription={subscription} dueDate={renewal} mode="pay" />
+                          <PaySubscriptionDialog subscription={subscription} dueDate={renewal} mode="direct" />
+                        </>
+                      )}
                       <SubscriptionDialog subscription={subscription} />
                       <DeleteButton
                         itemLabel={`subscription “${subscription.name}”`}

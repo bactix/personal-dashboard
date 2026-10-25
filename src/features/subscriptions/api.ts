@@ -3,7 +3,25 @@ import { z } from "zod";
 import { http } from "@/lib/http/client";
 import { httpDelete } from "@/lib/http/delete";
 
-import { subscriptionSchema, type CreateSubscriptionInput, type Subscription } from "./types";
+import {
+  subscriptionPaymentSchema,
+  subscriptionSchema,
+  type CreateSubscriptionInput,
+  type PaySubscriptionInput,
+  type Subscription,
+  type SubscriptionPayment,
+} from "./types";
+
+export function fetchSubscriptionPayments(): Promise<SubscriptionPayment[]> {
+  return http("/api/subscriptions/payments", z.array(subscriptionPaymentSchema));
+}
+
+export function paySubscription(id: string, input: PaySubscriptionInput): Promise<SubscriptionPayment> {
+  return http(`/api/subscriptions/${encodeURIComponent(id)}/pay`, subscriptionPaymentSchema, {
+    method: "POST",
+    json: input,
+  });
+}
 
 export function fetchSubscriptions(): Promise<Subscription[]> {
   return http("/api/subscriptions", z.array(subscriptionSchema));

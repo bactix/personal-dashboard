@@ -330,3 +330,16 @@ LEFT JOIN (SELECT bill_id, SUM(amount_cents) AS paid     FROM bill_payments GROU
 -- * Notifications         derived on the fly from invoices, bills, tasks, projects, prayer times
 -- * Notification dismissals, selected header clock, azkar counters   per-browser localStorage
 -- * Login                 Supabase Auth (auth.users, managed by Supabase); one owner, AUTH_OWNER_EMAIL in .env.local
+
+-- Payments of subscriptions; each is also a withdrawal in a wallet. See db/010-subscription-payments.sql.
+CREATE TABLE subscription_payments (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  subscription_id uuid NOT NULL REFERENCES subscriptions(id) ON DELETE RESTRICT,
+  transaction_id  uuid NOT NULL UNIQUE REFERENCES transactions(id) ON DELETE CASCADE,
+  amount_cents    bigint NOT NULL CHECK (amount_cents > 0),
+  due_date        date NOT NULL,
+  paid_date       date NOT NULL,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (subscription_id, due_date)
+);
+CREATE INDEX subscription_payments_subscription_idx ON subscription_payments (subscription_id);

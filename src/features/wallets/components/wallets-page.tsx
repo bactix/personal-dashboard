@@ -19,6 +19,7 @@ import { computeBalances } from "../balances"
 import { useDeleteWallet, useTransactions, useWallets } from "../hooks"
 import { TransferDialog } from "./transfer-dialog"
 import { WalletDialog } from "./wallet-dialog"
+import { WalletLogDialog } from "./wallet-log-dialog"
 
 export function WalletsPage() {
   const query = useWallets()
@@ -30,7 +31,7 @@ export function WalletsPage() {
 
   return (
     <div className="px-4 lg:px-6">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <WidgetCard
           title="Wallets"
           description={query.data ? `${wallets.length} total` : undefined}
@@ -51,7 +52,7 @@ export function WalletsPage() {
                 <TableHead>Currency</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="w-20">
+                <TableHead className="w-28">
                   <span className="sr-only">Actions</span>
                 </TableHead>
               </TableRow>
@@ -71,6 +72,7 @@ export function WalletsPage() {
                   <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatCreatedDate(wallet.createdAt)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end">
+                      <WalletLogDialog wallet={wallet} />
                       <WalletDialog wallet={wallet} />
                       <DeleteButton
                         itemLabel={`wallet “${wallet.name}”`}
