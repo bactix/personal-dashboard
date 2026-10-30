@@ -155,7 +155,16 @@ export function createSupabaseStore<T extends Timestamped>(config: SupabaseStore
   /** Makes the parent's child rows equal `toRows(input)`: delete the rest, update, insert. */
   async function syncChildren(parentId: string, input: EditableOf<T>) {
     for (const child of children) {
-      const rows = child.toRows(input).map((row) => ({ ...row, [child.fk]: parentId }));
+      // Client-supplied ids are only honoured when they already belong to this parent; any other
+      // id is dropped (the row is inserted fresh), so it can't hijack another parent's row or
+      // end up inside the `not in (...)` filter below.
+      const { data: owned, error: ownedError } = await db().from(child.table).select("id").eq(child.fk, parentId);
+      if (ownedError) throw fail(ownedError);
+      const ownedIds = new Set(((owned ?? []) as Row[]).map((row) => row.id));
+      const rows = child.toRows(input).map((row) => {
+        const { id, ...rest } = row;
+        return { ...(ownedIds.has(id) ? { id } : {}), ...rest, [child.fk]: parentId };
+      });
       if (child.insertBeforeDelete) {
         await syncInsertFirst(child, parentId, rows);
         continue;

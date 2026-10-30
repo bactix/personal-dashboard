@@ -20,7 +20,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login is not configured" }, { status: 503 });
   }
 
-  const clientKey = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local";
+  // The first x-forwarded-for entry is client-controlled; the platform proxy appends the real
+  // address last, so use x-real-ip or the last hop.
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim();
+  const clientKey = request.headers.get("x-real-ip")?.trim() || forwarded || "local";
   if (isRateLimited(clientKey)) {
     return NextResponse.json({ error: "Too many attempts" }, { status: 429 });
   }
