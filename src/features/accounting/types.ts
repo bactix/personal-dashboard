@@ -50,6 +50,8 @@ export const paymentRecordSchema = z.object({
   /** Minor units (cents) paid. */
   amountCents: z.number().int().positive(),
   note: z.string().trim().max(200).optional(),
+  /** The wallet transaction that moved this money, when it was recorded from Transactions. */
+  transactionId: z.string().optional(),
 });
 
 export const createPaymentInputSchema = z.object({

@@ -8,5 +8,5 @@ export const metalsWidget: WidgetDefinition = {
   id: "metals",
   title: "Gold, silver & Bitcoin",
   component: MetalsWidget,
-  size: { md: 1, xl: 1 },
+  size: { md: 2, xl: 4 },
 };

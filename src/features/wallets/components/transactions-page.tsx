@@ -12,6 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useBills, useInvoices } from "@/features/accounting"
+import { useProjects } from "@/features/projects"
 import { usePagination } from "@/hooks/use-pagination"
 import { formatMoney } from "@/lib/money"
 import { cn } from "@/lib/utils"
@@ -19,10 +21,38 @@ import { formatCreatedDate } from "@/lib/dates"
 
 import { signedCents, transactionKindLabel } from "../balances"
 import { useBudgets, useDeleteTransaction, useDeleteTransfer, useTransactions, useWallets } from "../hooks"
-import { budgetTitle } from "../types"
+import { budgetTitle, transactionCategoryLabel, type Transaction } from "../types"
 import { TransactionDialog } from "./transaction-dialog"
 
 export function TransactionsPage() {
+  const projects = useProjects()
+  const invoices = useInvoices()
+  const bills = useBills()
+  // The invoice / vendor bill a transaction is the payment of, by transaction id.
+  const relatedByTransaction = new Map<string, string>()
+  for (const invoice of invoices.data ?? []) {
+    for (const payment of invoice.payments) {
+      if (payment.transactionId) relatedByTransaction.set(payment.transactionId, `Invoice ${invoice.number}`)
+    }
+  }
+  for (const bill of bills.data ?? []) {
+    for (const payment of bill.payments) {
+      if (payment.transactionId) {
+        relatedByTransaction.set(payment.transactionId, `Bill · ${bill.vendor}${bill.reference ? ` (${bill.reference})` : ""}`)
+      }
+    }
+  }
+  const projectNameById = new Map(projects.data?.map((project) => [project.id, project.name]))
+  /** Transfers are moves between your own wallets; older transactions have no category. */
+  const categoryText = (transaction: Transaction) => {
+    if (transaction.transferId) return "Transfer"
+    if (!transaction.category) return "—"
+    if (transaction.category === "project") {
+      return `Projects · ${(transaction.projectId && projectNameById.get(transaction.projectId)) || "Unknown project"}`
+    }
+    return transactionCategoryLabel(transaction.category)
+  }
+
   const query = useTransactions()
   const deleteTransaction = useDeleteTransaction()
   const deleteTransfer = useDeleteTransfer()
@@ -55,6 +85,8 @@ export function TransactionsPage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Wallet</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Related to</TableHead>
                 <TableHead>Budget</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Note</TableHead>
@@ -78,6 +110,10 @@ export function TransactionsPage() {
                       <Badge variant={transaction.type === "deposit" ? "secondary" : "outline"}>
                         {transactionKindLabel(transaction)}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="whitespace-normal wrap-break-word">{categoryText(transaction)}</TableCell>
+                    <TableCell className="whitespace-normal wrap-break-word text-muted-foreground">
+                      {relatedByTransaction.get(transaction.id) ?? "—"}
                     </TableCell>
                     <TableCell className="whitespace-normal wrap-break-word text-muted-foreground">
                       {transaction.budgetId ? (budgetNameById.get(transaction.budgetId) ?? "Unknown budget") : "—"}

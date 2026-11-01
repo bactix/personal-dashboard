@@ -6,7 +6,7 @@ import { AccountingStatsWidget } from "./components/accounting-stats-widget";
 // Server-only code lives in ./server and is deliberately NOT re-exported here.
 export { BillsPage } from "./components/bills-page";
 export { InvoicesPage } from "./components/invoices-page";
-export { useBills, useInvoices } from "./hooks";
+export { billsQueryKey, invoicesQueryKey, useBills, useInvoices } from "./hooks";
 export { billOutstandingCents, invoiceOutstandingCents } from "./totals";
 export type { Bill, Invoice } from "./types";
 

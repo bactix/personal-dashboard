@@ -170,6 +170,8 @@ CREATE TABLE transactions (
   amount_cents bigint NOT NULL CHECK (amount_cents > 0),                  -- type decides the sign
   note         text CHECK (char_length(note) <= 200),
   budget_id    uuid REFERENCES budgets(id) ON DELETE SET NULL,   -- optional: the budget a withdrawal counts against
+  category     text CHECK (category IN ('food', 'transportation', 'gifts', 'investments', 'project', 'bills', 'fiac', 'emergencies')),  -- db/001-transaction-categories.sql
+  project_id   uuid REFERENCES projects(id) ON DELETE RESTRICT,    -- only for category 'project'
   txn_date     date NOT NULL,
   created_at   timestamptz NOT NULL DEFAULT now()
 );
@@ -256,7 +258,8 @@ CREATE TABLE invoice_payments (        -- money received
   invoice_id   uuid NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
   paid_date    date NOT NULL,
   amount_cents bigint NOT NULL CHECK (amount_cents > 0),
-  note         text CHECK (char_length(note) <= 200)
+  note         text CHECK (char_length(note) <= 200),
+  transaction_id uuid UNIQUE REFERENCES transactions(id) ON DELETE CASCADE   -- db/002: the wallet deposit that received it
 );
 
 -- ---------------------------------------------------------- vendor bills (money you owe)
@@ -286,7 +289,8 @@ CREATE TABLE bill_payments (           -- money paid out
   bill_id      uuid NOT NULL REFERENCES bills(id) ON DELETE CASCADE,
   paid_date    date NOT NULL,
   amount_cents bigint NOT NULL CHECK (amount_cents > 0),
-  note         text CHECK (char_length(note) <= 200)
+  note         text CHECK (char_length(note) <= 200),
+  transaction_id uuid UNIQUE REFERENCES transactions(id) ON DELETE CASCADE   -- db/002: the wallet withdrawal that paid it
 );
 
 -- ============================================================ DERIVED VIEWS

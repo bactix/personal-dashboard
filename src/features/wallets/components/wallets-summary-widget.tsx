@@ -22,10 +22,11 @@ export function WalletsSummaryWidget() {
       description={query.data ? `${wallets.length} total` : undefined}
       query={query}
       isEmpty={wallets.length === 0}
+      fill
       emptyMessage="No wallets yet."
     >
-      <div className="flex flex-col gap-3">
-        <ScrollList label="Wallets and their balances">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <ScrollList fill label="Wallets and their balances">
           {wallets.map((wallet) => {
             const balance = balances.get(wallet.id) ?? 0
             return (

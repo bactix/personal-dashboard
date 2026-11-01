@@ -33,6 +33,10 @@ export type NavItem = {
   href?: string
   icon: LucideIcon
   children?: { title: string; href: string; icon?: LucideIcon }[]
+  /** Expanded when the sidebar first loads, instead of only when it holds the current page. */
+  defaultOpen?: boolean
+  /** Not listed in the sidebar (the page still exists and still gets its header title). */
+  hidden?: boolean
 }
 
 /** Single source of truth for the sidebar. Add a page here, then create its route. */
@@ -42,16 +46,17 @@ export const navigation: NavItem[] = [
     title: "Financial",
     href: "/financial",
     icon: LandmarkIcon,
+    defaultOpen: true,
     children: [
+      { title: "Transactions", href: "/financial/transactions", icon: ArrowLeftRightIcon },
       { title: "Debts", href: "/financial/debts", icon: HandCoinsIcon },
       { title: "Wallets", href: "/financial/wallets", icon: WalletIcon },
-      { title: "Transactions", href: "/financial/transactions", icon: ArrowLeftRightIcon },
       { title: "Subscriptions", href: "/financial/subscriptions", icon: RepeatIcon },
+      { title: "Budgets", href: "/financial/budgets", icon: CowIcon },
+      { title: "Goals", href: "/financial/goals", icon: TargetIcon },
       { title: "Invoices", href: "/financial/invoices", icon: FileTextIcon },
       { title: "Vendor bills", href: "/financial/vendor-bills", icon: ReceiptTextIcon },
       { title: "Assets", href: "/financial/assets", icon: GemIcon },
-      { title: "Budgets", href: "/financial/budgets", icon: CowIcon },
-      { title: "Goals", href: "/financial/goals", icon: TargetIcon },
     ],
   },
   {
@@ -68,6 +73,7 @@ export const navigation: NavItem[] = [
     title: "Personal",
     href: "/personal",
     icon: UserIcon,
+    defaultOpen: true,
     children: [
       { title: "Purchase", href: "/personal/purchase", icon: ShoppingCartIcon },
       { title: "Contacts", href: "/personal/contacts", icon: ContactIcon },
@@ -77,6 +83,7 @@ export const navigation: NavItem[] = [
     ],
   },
   { title: "Automations", href: "/automations", icon: WorkflowIcon },
-  { title: "Data", href: "/data", icon: DatabaseIcon },
+  // Reachable only by adding ?debug=1 to the URL (see app/(app)/data/page.tsx).
+  { title: "Data", href: "/data", icon: DatabaseIcon, hidden: true },
   { title: "Settings", href: "/settings", icon: SettingsIcon },
 ]

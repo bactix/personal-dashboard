@@ -32,7 +32,7 @@ export function NavMain({ items }: { items: NavItem[] }) {
     <SidebarGroup>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => {
+          {items.filter((item) => !item.hidden).map((item) => {
             const Icon = item.icon
 
             if (!item.children) {
@@ -56,9 +56,9 @@ export function NavMain({ items }: { items: NavItem[] }) {
               <Collapsible
                 key={item.title}
                 asChild
-                // Closed by default; only the group holding the current page starts open.
+                // Closed by default, unless the config opens it or it holds the current page.
                 defaultOpen={
-                  pathname === item.href || item.children.some((child) => isActive(child.href))
+                  item.defaultOpen || pathname === item.href || item.children.some((child) => isActive(child.href))
                 }
                 className="group/collapsible"
               >

@@ -35,6 +35,8 @@ type WidgetCardProps = {
   action?: ReactNode
   /** Render without the card frame and title (the caller shows its own heading). */
   bare?: boolean
+  /** Let the content stretch to the card's height (see `ScrollList fill`); the card must be taller than its content for this to matter. */
+  fill?: boolean
   /** Rendered only when the query has data. Write the happy path here. */
   children: ReactNode
 }
@@ -74,6 +76,7 @@ export function WidgetCard({
   emptyMessage = "Nothing to show yet.",
   action,
   bare = false,
+  fill = false,
   children,
 }: WidgetCardProps) {
   if (bare) {
@@ -134,7 +137,7 @@ export function WidgetCard({
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent>
+      <CardContent className={fill ? "min-h-0 flex-1" : undefined}>
         {query.isPending ? (
           <div className="flex flex-col gap-3" aria-busy="true">
             <Skeleton className="h-8 w-1/2" />

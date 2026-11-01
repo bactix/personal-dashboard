@@ -22,6 +22,27 @@ export const createWalletInputSchema = z.object({
 /** "deposit" adds money to a wallet; "withdrawal" takes money out of it. */
 export const transactionTypeSchema = z.enum(["deposit", "withdrawal"]);
 
+/** What a transaction was for, in dropdown order. "project" is picked together with one of the projects. */
+export const TRANSACTION_CATEGORIES = [
+  { value: "food", label: "Food & Snacks" },
+  { value: "transportation", label: "Transportation" },
+  { value: "gifts", label: "Gifts" },
+  { value: "investments", label: "Investments" },
+  { value: "project", label: "Projects" },
+  { value: "bills", label: "Bills" },
+  { value: "fiac", label: "FIAC" },
+  { value: "emergencies", label: "Emergencies" },
+] as const;
+
+export type TransactionCategory = (typeof TRANSACTION_CATEGORIES)[number]["value"];
+
+export const transactionCategorySchema = z.enum(
+  TRANSACTION_CATEGORIES.map((item) => item.value) as [TransactionCategory, ...TransactionCategory[]]
+);
+
+export const transactionCategoryLabel = (category: TransactionCategory): string =>
+  TRANSACTION_CATEGORIES.find((item) => item.value === category)?.label ?? category;
+
 export const transactionSchema = z.object({
   id: z.string(),
   walletId: z.string().min(1),
@@ -35,15 +56,42 @@ export const transactionSchema = z.object({
   transferId: z.string().min(1).optional(),
   /** Optional budget this withdrawal counts against. Only withdrawals can have one. */
   budgetId: z.string().min(1).optional(),
+  /** What it was for. Required on everything you enter; older transactions and transfers have none. */
+  category: transactionCategorySchema.optional(),
+  /** The project, when the category is "project" (and only then). */
+  projectId: z.string().min(1).optional(),
   createdAt: z.string(),
 });
 
 // A transfer id is never accepted from the client: transfers go through the transfer routes.
-export const createTransactionInputSchema = transactionSchema.omit({
-  id: true,
-  createdAt: true,
-  transferId: true,
-});
+export const createTransactionInputSchema = transactionSchema
+  .omit({
+    id: true,
+    createdAt: true,
+    transferId: true,
+  })
+  .extend({
+    /** The invoice this deposit receives money for. Kept on the invoice's payment, not on the transaction. */
+    invoiceId: z.string().min(1).optional(),
+    /** The vendor bill this withdrawal pays. Kept on the bill's payment, not on the transaction. */
+    billId: z.string().min(1).optional(),
+  })
+  .superRefine((transaction, context) => {
+    if (transaction.invoiceId && transaction.billId) {
+      context.addIssue({ code: "custom", path: ["billId"], message: "Choose an invoice or a vendor bill, not both" });
+    } else if (transaction.invoiceId && transaction.type !== "deposit") {
+      context.addIssue({ code: "custom", path: ["invoiceId"], message: "Only money added can be registered to an invoice" });
+    } else if (transaction.billId && transaction.type !== "withdrawal") {
+      context.addIssue({ code: "custom", path: ["billId"], message: "Only money taken out can pay a vendor bill" });
+    }
+    if (!transaction.category) {
+      context.addIssue({ code: "custom", path: ["category"], message: "Choose a category" });
+    } else if (transaction.category === "project" && !transaction.projectId) {
+      context.addIssue({ code: "custom", path: ["projectId"], message: "Choose the project" });
+    } else if (transaction.category !== "project" && transaction.projectId) {
+      context.addIssue({ code: "custom", path: ["projectId"], message: "Only the Projects category takes a project" });
+    }
+  });
 
 /** Moves money from one wallet to another of the same currency. */
 export const createTransferInputSchema = z

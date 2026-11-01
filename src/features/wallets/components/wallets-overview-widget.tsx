@@ -32,9 +32,10 @@ export function WalletsOverviewWidget() {
       description={`${wallets.length} total`}
       query={query}
       isEmpty={wallets.length === 0}
+      fill
       emptyMessage="No wallets yet."
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         <div className="flex flex-col gap-1 border-b pb-3">
           <p className="text-sm text-muted-foreground">Total balance</p>
           {totals.map(({ currency, total }) => (
@@ -46,7 +47,7 @@ export function WalletsOverviewWidget() {
             </p>
           ))}
         </div>
-        <ScrollList label="Wallets and their balances">
+        <ScrollList fill label="Wallets and their balances">
           {wallets.map((wallet) => {
             const balance = balances.get(wallet.id) ?? 0
             return (

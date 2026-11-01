@@ -34,11 +34,11 @@ export const widgets: WidgetDefinition[] = [
  */
 export const sectionWidgets = {
   financial: [
-    metalsWidget,
     walletsOverviewWidget,
     debtsWidget,
     exchangeRatesWidget,
     transactionsHistoryWidget,
+    metalsWidget,
   ],
   work: [tasksWidget, projectsWidget, projectsStatsWidget, tasksStatsWidget, helpDeskStatsWidget],
   personal: [worldClocksListWidget, purchasesStatsWidget, contactsStatsWidget],

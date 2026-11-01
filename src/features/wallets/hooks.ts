@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { billsQueryKey, invoicesQueryKey } from "@/features/accounting";
+
 import { deleteTransfer, postTransfer, deleteBudget, deleteGoal, deleteTransaction, deleteWallet, fetchBudgets, fetchGoals, fetchTransactions, fetchWallets, postBudget, postGoal, postTransaction, postWallet, putBudget, putGoal, putTransaction, putWallet } from "./api";
 import type { CreateBudgetInput, CreateGoalInput, CreateTransactionInput, CreateWalletInput } from "./types";
 
@@ -24,13 +26,23 @@ export function useCreateWallet() {
   });
 }
 
-export function useCreateTransaction() {
+/**
+ * Balances are derived from transactions, so that list needs refreshing; a transaction can also be
+ * the payment of an invoice or vendor bill, so those lists are refreshed too.
+ */
+function useInvalidateTransactions() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: postTransaction,
-    // Balances are derived from transactions, so only this list needs refreshing.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
-  });
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
+      queryClient.invalidateQueries({ queryKey: invoicesQueryKey }),
+      queryClient.invalidateQueries({ queryKey: billsQueryKey }),
+    ]);
+}
+
+export function useCreateTransaction() {
+  const invalidate = useInvalidateTransactions();
+  return useMutation({ mutationFn: postTransaction, onSuccess: invalidate });
 }
 
 export function useDeleteWallet() {
@@ -42,11 +54,8 @@ export function useDeleteWallet() {
 }
 
 export function useDeleteTransaction() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: deleteTransaction,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
-  });
+  const invalidate = useInvalidateTransactions();
+  return useMutation({ mutationFn: deleteTransaction, onSuccess: invalidate });
 }
 
 export function useBudgets() {
@@ -118,10 +127,10 @@ export function useUpdateWallet() {
 }
 
 export function useUpdateTransaction() {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateTransactions();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: CreateTransactionInput }) => putTransaction(id, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionsQueryKey }),
+    onSuccess: invalidate,
   });
 }
 

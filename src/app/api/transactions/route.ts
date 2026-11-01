@@ -4,6 +4,9 @@ import {
   BudgetMismatchError,
   BudgetNotFoundError,
   InsufficientFundsError,
+  LimitExceededError,
+  ProjectNotFoundError,
+  SettlementError,
   WalletNotFoundError,
   createTransaction,
   listTransactions,
@@ -31,6 +34,9 @@ export async function POST(request: Request) {
       error instanceof WalletNotFoundError ||
       error instanceof BudgetNotFoundError ||
       error instanceof BudgetMismatchError ||
+      error instanceof ProjectNotFoundError ||
+      error instanceof SettlementError ||
+      error instanceof LimitExceededError ||
       error instanceof InsufficientFundsError
     ) {
       return NextResponse.json({ error: error.message }, { status: 400 })

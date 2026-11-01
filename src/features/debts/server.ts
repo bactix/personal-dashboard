@@ -136,6 +136,7 @@ export async function payDebt(id: string, input: PayDebtInput): Promise<Debt | u
     amountCents: input.amountCents,
     note: note.slice(0, 200),
     date: input.date,
+    category: "bills",
   });
   try {
     await payments.create({

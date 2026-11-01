@@ -90,6 +90,7 @@ export async function paySubscription(
     amountCents: subscription.amountCents,
     note: `Subscription: ${subscription.name}`.slice(0, 200),
     date: input.paidDate,
+    category: "bills",
   });
   try {
     return await payments.create({

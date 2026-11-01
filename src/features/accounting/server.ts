@@ -1,8 +1,17 @@
 import { randomUUID } from "node:crypto";
 
+import { InUseError } from "@/lib/api/delete-route";
 import { createSupabaseStore } from "@/lib/storage/supabase-store";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-import { billTotalCents, invoiceTotalCents, paidCents, returnedCents } from "./totals";
+import {
+  billOutstandingCents,
+  billTotalCents,
+  invoiceOutstandingCents,
+  invoiceTotalCents,
+  paidCents,
+  returnedCents,
+} from "./totals";
 import {
   billSchema,
   invoiceSchema,
@@ -66,7 +75,8 @@ function paymentsTable(table: string, fk: string) {
   return {
     table,
     fk,
-    columns: "id,paid_date,amount_cents,note,created_at",
+    // "*" rather than a column list: payments can be read before db/002 adds transaction_id.
+    columns: "*",
     order: "created_at",
     attach(candidate: Record<string, unknown>, rows: Record<string, unknown>[]) {
       candidate.payments = rows.map((row) => ({
@@ -74,6 +84,7 @@ function paymentsTable(table: string, fk: string) {
         date: row.paid_date,
         amountCents: row.amount_cents,
         note: row.note ?? undefined,
+        transactionId: row.transaction_id ?? undefined,
       }));
     },
     toRows: (input: { payments: PaymentRecord[] }) =>
@@ -82,6 +93,8 @@ function paymentsTable(table: string, fk: string) {
         paid_date: item.date,
         amount_cents: item.amountCents,
         note: item.note ?? null,
+        // Only sent when set, so ordinary payments still save before db/002 has been run.
+        ...(item.transactionId ? { transaction_id: item.transactionId } : {}),
       })),
   };
 }
@@ -156,7 +169,12 @@ export async function updateInvoice(id: string, input: CreateInvoiceInput): Prom
   return invoices.update(id, next);
 }
 
-export function removeInvoice(id: string): Promise<boolean> {
+const FROM_TRANSACTION = "This payment came from a wallet transaction. Delete that transaction instead.";
+const HAS_TRANSACTION_PAYMENTS = "This has payments made through wallet transactions. Delete those transactions first.";
+
+export async function removeInvoice(id: string): Promise<boolean> {
+  const current = await invoices.get(id);
+  if (current?.payments.some((item) => item.transactionId)) throw new InUseError(HAS_TRANSACTION_PAYMENTS);
   return invoices.remove(id);
 }
 
@@ -176,7 +194,10 @@ export async function removeInvoiceReturn(id: string, returnId: string): Promise
   return true;
 }
 
-export async function addInvoicePayment(id: string, input: CreatePaymentInput): Promise<Invoice | undefined> {
+export async function addInvoicePayment(
+  id: string,
+  input: CreatePaymentInput & { transactionId?: string }
+): Promise<Invoice | undefined> {
   const current = await invoices.get(id);
   if (!current) return undefined;
   const next = { ...current, payments: [...current.payments, { ...input, id: randomUUID() }] };
@@ -187,7 +208,9 @@ export async function addInvoicePayment(id: string, input: CreatePaymentInput): 
 /** False when the invoice or the payment doesn't exist. */
 export async function removeInvoicePayment(id: string, paymentId: string): Promise<boolean> {
   const current = await invoices.get(id);
-  if (!current || !current.payments.some((item) => item.id === paymentId)) return false;
+  const payment = current?.payments.find((item) => item.id === paymentId);
+  if (!current || !payment) return false;
+  if (payment.transactionId) throw new InUseError(FROM_TRANSACTION);
   await invoices.update(id, { ...current, payments: current.payments.filter((item) => item.id !== paymentId) });
   return true;
 }
@@ -212,7 +235,9 @@ export async function updateBill(id: string, input: CreateBillInput): Promise<Bi
   return bills.update(id, next);
 }
 
-export function removeBill(id: string): Promise<boolean> {
+export async function removeBill(id: string): Promise<boolean> {
+  const current = await bills.get(id);
+  if (current?.payments.some((item) => item.transactionId)) throw new InUseError(HAS_TRANSACTION_PAYMENTS);
   return bills.remove(id);
 }
 
@@ -232,7 +257,10 @@ export async function removeBillReturn(id: string, returnId: string): Promise<bo
   return true;
 }
 
-export async function addBillPayment(id: string, input: CreatePaymentInput): Promise<Bill | undefined> {
+export async function addBillPayment(
+  id: string,
+  input: CreatePaymentInput & { transactionId?: string }
+): Promise<Bill | undefined> {
   const current = await bills.get(id);
   if (!current) return undefined;
   const next = { ...current, payments: [...current.payments, { ...input, id: randomUUID() }] };
@@ -243,7 +271,73 @@ export async function addBillPayment(id: string, input: CreatePaymentInput): Pro
 /** False when the bill or the payment doesn't exist. */
 export async function removeBillPayment(id: string, paymentId: string): Promise<boolean> {
   const current = await bills.get(id);
-  if (!current || !current.payments.some((item) => item.id === paymentId)) return false;
+  const payment = current?.payments.find((item) => item.id === paymentId);
+  if (!current || !payment) return false;
+  if (payment.transactionId) throw new InUseError(FROM_TRANSACTION);
   await bills.update(id, { ...current, payments: current.payments.filter((item) => item.id !== paymentId) });
   return true;
+}
+
+// ---- Payments made from wallet transactions ----
+// A deposit can settle an invoice and a withdrawal a vendor bill (see the wallets feature). The
+// payment row keeps the transaction's id; these helpers are what wallets/server.ts calls.
+
+/** What a transaction needs to know about the invoice / bill it is registered to. */
+export type SettlementTarget = { label: string; currency: string; outstandingCents: number };
+
+export async function getInvoiceSettlementTarget(id: string): Promise<SettlementTarget | undefined> {
+  const invoice = await invoices.get(id);
+  if (!invoice) return undefined;
+  return { label: invoice.number, currency: invoice.currency, outstandingCents: invoiceOutstandingCents(invoice) };
+}
+
+export async function getBillSettlementTarget(id: string): Promise<SettlementTarget | undefined> {
+  const bill = await bills.get(id);
+  if (!bill) return undefined;
+  return {
+    label: bill.reference ? `${bill.vendor} (${bill.reference})` : bill.vendor,
+    currency: bill.currency,
+    outstandingCents: billOutstandingCents(bill),
+  };
+}
+
+/** The invoice / bill payment that a wallet transaction created, if any. */
+export type Settlement = { kind: "invoice" | "bill"; documentId: string; paymentId: string };
+
+export async function findSettlement(transactionId: string): Promise<Settlement | undefined> {
+  const db = getSupabaseAdmin();
+  for (const [kind, table, fk] of [
+    ["invoice", "invoice_payments", "invoice_id"],
+    ["bill", "bill_payments", "bill_id"],
+  ] as const) {
+    const { data, error } = await db.from(table).select(`id,${fk}`).eq("transaction_id", transactionId).maybeSingle();
+    if (error) throw new Error(`Supabase: ${error.message}`);
+    if (data) {
+      const row = data as unknown as Record<string, string>;
+      return { kind, documentId: row[fk], paymentId: row.id };
+    }
+  }
+  return undefined;
+}
+
+/** Keeps the payment in step with its transaction (date, amount, note) after that was edited. */
+export async function updateSettlementPayment(
+  settlement: Settlement,
+  fields: { date: string; amountCents: number; note?: string }
+): Promise<void> {
+  const replace = (payments: PaymentRecord[]) =>
+    payments.map((item) => (item.id === settlement.paymentId ? { ...item, ...fields } : item));
+  if (settlement.kind === "invoice") {
+    const current = await invoices.get(settlement.documentId);
+    if (!current) return;
+    const next = { ...current, payments: replace(current.payments) };
+    assertWithinTotal(invoiceTotalCents(next), next, "Payments can't be more than what is still owed");
+    await invoices.update(current.id, next);
+  } else {
+    const current = await bills.get(settlement.documentId);
+    if (!current) return;
+    const next = { ...current, payments: replace(current.payments) };
+    assertWithinTotal(billTotalCents(next), next, "Payments can't be more than what is still owed");
+    await bills.update(current.id, next);
+  }
 }

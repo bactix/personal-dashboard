@@ -1,5 +1,17 @@
 import { randomUUID } from "node:crypto";
 
+import {
+  LimitExceededError,
+  addBillPayment,
+  addInvoicePayment,
+  findSettlement,
+  getBillSettlementTarget,
+  getInvoiceSettlementTarget,
+  updateSettlementPayment,
+  type Settlement,
+  type SettlementTarget,
+} from "@/features/accounting/server";
+import { getProject } from "@/features/projects/server";
 import { InUseError } from "@/lib/api/delete-route";
 import { createSupabaseStore } from "@/lib/storage/supabase-store";
 
@@ -96,6 +108,90 @@ async function assertBudgetFits(input: CreateTransactionInput, walletCurrency: s
   }
 }
 
+export class ProjectNotFoundError extends Error {
+  constructor() {
+    super("Project not found");
+    this.name = "ProjectNotFoundError";
+  }
+}
+
+/** A transaction counted under a project must point at a project that exists. */
+async function assertProjectExists(input: CreateTransactionInput) {
+  if (input.category === "project" && input.projectId && !(await getProject(input.projectId))) {
+    throw new ProjectNotFoundError();
+  }
+}
+
+/** The chosen invoice / vendor bill can't take this transaction; routes map it to a 400. */
+export class SettlementError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SettlementError";
+  }
+}
+
+export { LimitExceededError };
+
+const amountText = (cents: number, currency: string) => `${(cents / 100).toFixed(2)} ${currency}`;
+
+/**
+ * A deposit may be registered to an invoice and a withdrawal to a vendor bill, as long as it exists,
+ * is in the wallet's currency and the amount is no more than what is still owed. `alreadyCounted`
+ * is what an edited transaction already paid, so editing it doesn't count it twice.
+ */
+function checkSettlementTarget(
+  target: SettlementTarget | undefined,
+  kind: "invoice" | "bill",
+  walletCurrency: string,
+  amountCents: number,
+  alreadyCounted = 0
+) {
+  if (!target) throw new SettlementError(`That ${kind === "invoice" ? "invoice" : "vendor bill"} no longer exists.`);
+  if (target.currency !== walletCurrency) {
+    throw new SettlementError(`${target.label} is in ${target.currency}, but this wallet uses ${walletCurrency}.`);
+  }
+  const left = target.outstandingCents + alreadyCounted;
+  if (amountCents > left) {
+    throw new SettlementError(`${target.label} only has ${amountText(left, target.currency)} left to settle.`);
+  }
+}
+
+/** The invoice / vendor bill a new link points at, once it has been checked. */
+async function resolveSettlementTarget(
+  input: CreateTransactionInput,
+  walletCurrency: string
+): Promise<{ kind: "invoice" | "bill"; id: string } | undefined> {
+  if (input.invoiceId) {
+    checkSettlementTarget(await getInvoiceSettlementTarget(input.invoiceId), "invoice", walletCurrency, input.amountCents);
+    return { kind: "invoice", id: input.invoiceId };
+  }
+  if (input.billId) {
+    checkSettlementTarget(await getBillSettlementTarget(input.billId), "bill", walletCurrency, input.amountCents);
+    return { kind: "bill", id: input.billId };
+  }
+  return undefined;
+}
+
+/** invoiceId / billId live on the invoice's or bill's payment, not in the transactions table. */
+function transactionFields(input: CreateTransactionInput) {
+  const fields = { ...input };
+  delete fields.invoiceId;
+  delete fields.billId;
+  return fields;
+}
+
+/** Records the payment on the invoice / vendor bill for a transaction that was just saved. */
+async function recordSettlement(target: { kind: "invoice" | "bill"; id: string }, transaction: Transaction) {
+  const payment = {
+    date: transaction.date,
+    amountCents: transaction.amountCents,
+    note: transaction.note,
+    transactionId: transaction.id,
+  };
+  if (target.kind === "invoice") await addInvoicePayment(target.id, payment);
+  else await addBillPayment(target.id, payment);
+}
+
 const TRANSFER_LOCKED = "This transaction is part of a transfer. Delete the transfer instead.";
 
 export async function listWallets(): Promise<Wallet[]> {
@@ -121,13 +217,23 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
   const wallet = await wallets.get(input.walletId);
   if (!wallet) throw new WalletNotFoundError();
   await assertBudgetFits(input, wallet.currency);
+  await assertProjectExists(input);
+  const settles = await resolveSettlementTarget(input, wallet.currency);
 
   if (input.type === "withdrawal") {
     const balance =
       computeBalances(await transactions.list(), await wallets.list()).get(input.walletId) ?? 0;
     if (input.amountCents > balance) throw new InsufficientFundsError();
   }
-  return transactions.create(input);
+  const created = await transactions.create(transactionFields(input));
+  if (!settles) return created;
+  try {
+    await recordSettlement(settles, created);
+  } catch (error) {
+    await transactions.remove(created.id); // do not leave money moved with no payment recorded
+    throw error;
+  }
+  return created;
 }
 
 export async function removeWallet(id: string): Promise<boolean> {
@@ -288,6 +394,25 @@ export async function updateTransaction(
   const wallet = await wallets.get(input.walletId);
   if (!wallet) throw new WalletNotFoundError();
   await assertBudgetFits(input, wallet.currency);
+  await assertProjectExists(input);
+
+  // A transaction that already settles an invoice / bill keeps that link (its payment follows the
+  // edit); an older one can be linked now.
+  const settlement: Settlement | undefined = await findSettlement(id);
+  let settles: Awaited<ReturnType<typeof resolveSettlementTarget>>;
+  if (settlement) {
+    if ((settlement.kind === "invoice") !== (input.type === "deposit")) {
+      throw new SettlementError("This transaction settles an invoice or bill, so it must stay the same kind.");
+    }
+    // Same document, maybe a new wallet or amount: its own old payment does not count against it.
+    const target =
+      settlement.kind === "invoice"
+        ? await getInvoiceSettlementTarget(settlement.documentId)
+        : await getBillSettlementTarget(settlement.documentId);
+    checkSettlementTarget(target, settlement.kind, wallet.currency, input.amountCents, current.amountCents);
+  } else {
+    settles = await resolveSettlementTarget(input, wallet.currency);
+  }
 
   // The edit must not leave either the old or the new wallet with a negative balance.
   const balances = computeBalances(
@@ -299,7 +424,33 @@ export async function updateTransaction(
       throw new InUseError("This change would leave a wallet with a negative balance.");
     }
   }
-  return transactions.update(id, input);
+  const updated = await transactions.update(id, transactionFields(input));
+  if (!updated) return undefined;
+  try {
+    if (settlement) {
+      await updateSettlementPayment(settlement, {
+        date: updated.date,
+        amountCents: updated.amountCents,
+        note: updated.note,
+      });
+    } else if (settles) {
+      await recordSettlement(settles, updated);
+    }
+  } catch (error) {
+    // Put the transaction back as it was.
+    await transactions.update(id, {
+      walletId: current.walletId,
+      type: current.type,
+      amountCents: current.amountCents,
+      note: current.note,
+      date: current.date,
+      budgetId: current.budgetId,
+      category: current.category,
+      projectId: current.projectId,
+    });
+    throw error;
+  }
+  return updated;
 }
 
 /**
